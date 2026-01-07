@@ -1,9 +1,12 @@
+a {
+    text-decoration: none;
+}
+
 .navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 20px;
-    background-color: #f8f9fa;
+    padding: 0.625rem 4rem;
     flex-wrap: wrap;
 }
 
@@ -19,21 +22,21 @@
 
 .navbar-right {
     justify-content: flex-end;
-    gap: 15px;
+    gap: 0.9375rem;
 }
 
 .navbar-logo {
-    height: 40px;
+    height: 5rem;
     width: auto;
     display: block;
 }
 
 /* Mobile Styles */
-@media (max-width: 768px) {
+@media (max-width: 48rem) {
     .navbar {
         flex-direction: column;
         text-align: center;
-        gap: 10px;
+        gap: 0.625rem;
     }
 
     .navbar-left, .navbar-center, .navbar-right {
@@ -43,6 +46,6 @@
 
     .navbar-right {
         flex-direction: column;
-        gap: 10px;
+        gap: 0.625rem;
     }
 }

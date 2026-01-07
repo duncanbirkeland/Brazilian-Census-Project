@@ -10,16 +10,6 @@
   <nav class="navbar">
     <!-- Left: Title -->
     <div class="navbar-left">
-      <h1 class="app-title">{{ title }}</h1>
-    </div>
-
-    <!-- Center: Logo -->
-    <div class="navbar-center">
-      <img src="{{ url_for('static', filename='images/Logo.png') }}" alt="Census Logo" class="navbar-logo">
-    </div>
-
-    <!-- Right: Year selector + Export + Login/Register -->
-    <div class="navbar-right">
       <label for="year-select">Year:</label>
       <select id="year-select">
         <option value="2010">2010</option>
@@ -27,6 +17,15 @@
         <option value="2020">2020</option>
       </select>
       <button id="export-btn">Export</button>
+    </div>
+
+    <!-- Center: Logo -->
+    <div class="navbar-center">
+      <img src="{{ url_for('static', filename='images/Logo.jpg') }}" alt="Census Logo" class="navbar-logo">
+    </div>
+
+    <!-- Right: Year selector + Export + Login/Register -->
+    <div class="navbar-right">
       <a href="#" class="nav-link">Login</a>
       <a href="#" class="nav-link">Register</a>
     </div>
