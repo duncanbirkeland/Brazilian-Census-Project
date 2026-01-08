@@ -1,38 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}{{ title }}{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jomhuria&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap');
+    </style>
+
 </head>
 <body>
 <div class="page-wrapper">
-  <img src="{{ url_for('static', filename='images/Background.jpg') }}" alt="Background" class="page-bg">
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <!-- Left (optional content from child templates) -->
+            <div class="navbar-left">
+                <p id="navbar-logo">CENSASIL</p>
+                {% block navbar_left %}{% endblock %}
+            </div>
 
-  <nav class="navbar">
-    <!-- Left (optional content from child templates) -->
-    <div class="navbar-left">
-      {% block navbar_left %}{% endblock %}
-    </div>
+            <!-- Center: Logo -->
+            <div class="navbar-center">
+                {% block navbar_center %}{% endblock %}
+            </div>
 
-    <!-- Center: Logo -->
-    <div class="navbar-center">
-      <img src="{{ url_for('static', filename='images/Logo.jpg') }}"
-           alt="Census Logo"
-           class="navbar-logo">
-    </div>
-
-    <!-- Right: Login / Register -->
-    <div class="navbar-right">
-      <a href="#" class="nav-link">Login</a>
-      <a href="#" class="nav-link">Register</a>
-    </div>
-  </nav>
-<!-- Page content -->
-<main class = "page-content">
-  {% block content %}{% endblock %}
-</main>
+            <!-- Right: Login / Register -->
+            <div class="navbar-right">
+                <a href="#" class="nav-link">Register</a>
+                <a href="#" class="nav-link">Login</a>
+            </div>
+        </div>
+    </nav>
+    <!-- Page content -->
+    <main class="page-content">
+        {% block content %}{% endblock %}
+    </main>
 </div>
 
 </body>

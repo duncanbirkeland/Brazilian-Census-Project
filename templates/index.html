@@ -4,17 +4,6 @@
 Home
 {% endblock %}
 
-{% block navbar_left %}
-  <label for="year-select">Year:</label>
-  <select id="year-select">
-    <option value="2010">2010</option>
-    <option value="2015">2015</option>
-    <option value="2020">2020</option>
-  </select>
-  <button id="export-btn">Export</button>
-{% endblock %}
-
 {% block content %}
-  <h1>Welcome to the Census Dashboard</h1>
-  <p>Select a year from the dropdown above to begin.</p>
+  <div id = "select-container"> </div>
 {% endblock %}
