@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ title }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="page-wrapper">
+
+  <nav class="navbar">
+    <!-- Left (optional content from child templates) -->
+    <div class="navbar-left">
+      {% block navbar_left %}{% endblock %}
+    </div>
+
+    <!-- Center: Logo -->
+    <div class="navbar-center">
+      <img src="{{ url_for('static', filename='images/Logo.jpg') }}"
+           alt="Census Logo"
+           class="navbar-logo">
+    </div>
+
+    <!-- Right: Login / Register -->
+    <div class="navbar-right">
+      <a href="#" class="nav-link">Login</a>
+      <a href="#" class="nav-link">Register</a>
+    </div>
+  </nav>
+<!-- Page content -->
+<main class = "page-content">
+  {% block content %}{% endblock %}
+</main>
+</div>
+
+</body>
+</html>
