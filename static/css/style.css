@@ -166,6 +166,7 @@ html {
     transform 0.15s ease,
     box-shadow 0.15s ease;
 }
+
 /* ========================= */
 /* DEMO PANELS (FIXED GAP)   */
 /* ========================= */
@@ -184,7 +185,6 @@ html {
   left: var(--demo-inset);
   right: var(--demo-inset);
 
-  /* consistent spacing + layout */
   display: flex;
   gap: var(--demo-gap);
   align-items: stretch;
@@ -194,21 +194,31 @@ html {
   max-height: 100%;
 }
 
+/* base panel styling */
 .demo-panel {
   background-color: #AAAAAA;
   border-radius: calc(2 * var(--u));
   box-shadow: 0 calc(0.75 * var(--u)) calc(2 * var(--u)) rgba(0, 0, 0, 0.15);
-  min-height: 0; /* helps in flex layouts */
+  min-height: 0;
 }
 
-/* LEFT PANEL: clamps width but can shrink if needed */
-#select-container {
-  flex: 0 1 clamp(160px, 30%, var(--select-container-width));
-  min-width: 160px;
-}
+/* ========================= */
+/* UPDATED FLEX BEHAVIOR     */
+/* ========================= */
 
-/* RIGHT PANEL: takes remaining space, but respects max */
+/* Let BOTH panels shrink/grow symmetrically,
+   so the outer left/right gaps remain visually even. */
+#select-container,
 #map-container {
-  flex: 1 1 clamp(220px, 55%, var(--map-container-width));
-  min-width: 220px;
+  flex: 1 1 0;   /* symmetric sizing */
+  min-width: 0;  /* IMPORTANT: allow flex children to shrink */
+}
+
+/* Keep your intended max sizes as caps (not hard "preferred" clamps) */
+#select-container {
+  max-width: var(--select-container-width);
+}
+
+#map-container {
+  max-width: var(--map-container-width);
 }
