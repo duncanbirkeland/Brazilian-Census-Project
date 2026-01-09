@@ -12,11 +12,13 @@
 </head>
 <body>
 <div class="page-wrapper">
+  <div class="page-frame">
+    <!-- navbar + page-content go here -->
     <nav class="navbar">
         <div class="navbar-inner">
             <!-- Left (optional content from child templates) -->
             <div class="navbar-left">
-                <p id="navbar-logo">CENSASIL</p>
+                <p id="navbar-logo">BRAZILCENSUS</p>
                 {% block navbar_left %}{% endblock %}
             </div>
 
@@ -27,8 +29,8 @@
 
             <!-- Right: Login / Register -->
             <div class="navbar-right">
-                <a href="#" class="nav-link">Register</a>
-                <a href="#" class="nav-link">Login</a>
+                <a href="#" class="nav-link">REGISTER</a>
+                <a href="#" class="nav-link">LOGIN</a>
             </div>
         </div>
     </nav>
@@ -36,6 +38,7 @@
     <main class="page-content">
         {% block content %}{% endblock %}
     </main>
+  </div>
 </div>
 
 </body>
