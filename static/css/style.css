@@ -113,7 +113,8 @@ body {
   padding: calc(2 * var(--u)) var(--navbar-inner-padding-horizontal) 0;
 }
 
-#navbar-logo {
+#navbar-title {
+  text-transform: uppercase;
   padding-top: calc(var(--title-font-size) / 4);
   font-weight: 560;
   font-size : var(--title-font-size);
@@ -177,7 +178,7 @@ body {
   align-items: stretch;
 
   /* height driven by frame height */
-  height: min(70cqh, 80%);
+  height: 75cqh;
   max-height: 100%;
 }
 
@@ -331,7 +332,8 @@ body {
 }
 
 .picker-spacer {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  max-height: calc(3 * var(--pu)); /* adjust */
 }
 
 /* ========================= */
