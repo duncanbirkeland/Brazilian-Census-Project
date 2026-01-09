@@ -92,7 +92,10 @@ body {
   /* endless scaling units (no clamp floor) */
   --u: min(2cqw, 2cqh);
 }
-
+.page-frame:has(#login-content) {
+    width: min(100%, calc((100vh - (12 * var(--wrapper-margin))) * var(--design-ratio)));
+  height: min(100%, calc((100vw - (4 * var(--wrapper-margin))) / var(--design-ratio)));
+}
 /* ========================= */
 /* NAVBAR                    */
 /* ========================= */
@@ -134,12 +137,13 @@ body {
   position: relative;
 }
 
+
 /* ========================= */
 /* NAV LINKS                 */
 /* ========================= */
 .nav-link {
   text-decoration: none;
-
+  text-transform: uppercase;
   padding: var(--u) calc(2 * var(--u));
   border-radius: calc(0.75 * var(--u));
   color: var(--soft-white);

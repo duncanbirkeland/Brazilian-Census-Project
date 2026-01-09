@@ -4,7 +4,13 @@
 {% block title %}
 Home
 {% endblock %}
-
+{% block navbar_left %}
+<p id="navbar-logo">BRAZILCENSUS</p>
+{% endblock %}
+{% block navbar_right %}
+                    <a href="register" class="nav-link">register</a>
+                    <a href="login" class="nav-link">login</a>
+{% endblock %}
 {% block content %}
 <div class="demo-row">
   <div id="select-container" class="demo-panel">

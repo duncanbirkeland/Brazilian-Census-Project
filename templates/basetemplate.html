@@ -17,33 +17,32 @@
         class="page-background"
 >
 <div class="page-wrapper">
-  <div class="page-frame">
-    <!-- navbar + page-content go here -->
-    <nav class="navbar">
-        <div class="navbar-inner">
-            <!-- Left (optional content from child templates) -->
-            <div class="navbar-left">
-                <p id="navbar-logo">BRAZILCENSUS</p>
-                {% block navbar_left %}{% endblock %}
-            </div>
+    <div class="page-frame">
+        <!-- navbar + page-content go here -->
+        <nav class="navbar">
+            <div class="navbar-inner">
+                <!-- Left (optional content from child templates) -->
+                <div class="navbar-left">
+                    {% block navbar_left %}{% endblock %}
+                </div>
 
-            <!-- Center: Logo -->
-            <div class="navbar-center">
-                {% block navbar_center %}{% endblock %}
-            </div>
+                <!-- Center: Logo -->
+                <div class="navbar-center">
+                    {% block navbar_center %}{% endblock %}
+                </div>
 
-            <!-- Right: Login / Register -->
-            <div class="navbar-right">
-                <a href="#" class="nav-link">REGISTER</a>
-                <a href="#" class="nav-link">LOGIN</a>
+                <!-- Right: Login / Register -->
+                <div class="navbar-right">
+                    {% block navbar_right %}{% endblock %}
+                </div>
             </div>
-        </div>
-    </nav>
-    <!-- Page content -->
-    <main class="page-content">
-        {% block content %}{% endblock %}
-    </main>
-  </div>
+        </nav>
+        <!-- Page content -->
+        <main class="page-content"
+              {% block main_id %}{% endblock main_id %}>
+            {% block content %}{% endblock content %}
+        </main>
+    </div>
 </div>
 
 </body>
