@@ -1,3 +1,4 @@
+
 {% extends "basetemplate.html" %}
 
 {% block title %}
@@ -5,9 +6,57 @@ Home
 {% endblock %}
 
 {% block content %}
- <div class="demo-row">
-  <div id="select-container" class="demo-panel"></div>
+<div class="demo-row">
+  <div id="select-container" class="demo-panel">
+    <div class="picker">
+      <h2 class="picker-title">DATA PICKER</h2>
+
+      <div class="picker-field">
+        <label class="picker-label" for="category"> CATEGORY</label>
+        <select id="category" class="picker-select">
+          <option selected disabled>Choose…</option>
+          <option>Population</option>
+          <option>Income</option>
+          <option>Education</option>
+          <option>Health</option>
+        </select>
+      </div>
+
+      <!-- dropdown row 2 -->
+      <div class="picker-field">
+        <label class="picker-label" for="demographic">Demographic</label>
+        <select id="demographic" class="picker-select">
+          <option selected>Example Demographic</option>
+          <option>Age</option>
+          <option>Sex</option>
+          <option>Race</option>
+          <option>Urban/Rural</option>
+        </select>
+      </div>
+
+      <div class="picker-field">
+        <label class="picker-label" for="year">Year</label>
+        <select id="year" class="picker-select">
+          <option selected>Year</option>
+          <option>2010</option>
+          <option>2020</option>
+          <option>2022</option>
+          <option>2023</option>
+        </select>
+      </div>
+
+      <div class="picker-spacer"></div>
+
+      <button class="btn-primary" type="button">View Correlations</button>
+
+      <div class="picker-actions">
+        <button class="btn-secondary" type="button">Export</button>
+        <button class="btn-secondary" type="button">Reset</button>
+      </div>
+    </div>
+  </div>
+
   <div id="map-container" class="demo-panel"></div>
 </div>
-
 {% endblock %}
+
