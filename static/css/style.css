@@ -1,15 +1,13 @@
 /* ========================= */
-/* DESIGN TARGET VARIABLES  */
+/* DESIGN TARGET VARIABLES   */
 /* ========================= */
 
 :root {
   --design-ratio: calc(16 / 9);
 
-  /* MASTER SCALE (TYPOGRAPHY / RHYTHM) */
-  --u: clamp(10px, 2vmin, 28px);
-
-  /* PANEL SCALE (MATCHES --u UNTIL SHRINK IS NEEDED) */
-  --panel-u: clamp(8px, 2vmin, 20px);
+  /* Fallback (if container units aren’t supported) */
+  --u: 2vmin;
+  --panel-u: 1.6vmin;
 
   --wrapper-margin: calc(2.5 * var(--u));
 
@@ -18,11 +16,6 @@
   --navbar-inner-padding-horizontal: calc(2.25 * var(--u));
 
   --title-font-size: calc(4.5 * var(--u));
-
-  /* PANEL DIMENSIONS */
-  --select-container-height: calc(28 * var(--panel-u));
-  --select-container-width: calc(25 * var(--panel-u));
-  --map-container-width: calc(40 * var(--panel-u));
 }
 
 /* ========================= */
@@ -86,6 +79,13 @@ html {
   display: flex;
   flex-direction: column;
   position: relative;
+
+  /* ✅ container-driven scaling */
+  container-type: size;
+
+  /* ✅ endless scaling units (no clamp floor) */
+  --u: min(2cqw, 2cqh);
+  --panel-u: min(1.6cqw, 1.6cqh);
 }
 
 /* ========================= */
@@ -172,8 +172,8 @@ html {
 /* ========================= */
 
 :root {
-  --demo-inset: calc(var(--wrapper-margin) * 2); /* left/right padding from frame */
-  --demo-gap: calc(2 * var(--u));                /* consistent gap between panels */
+  --demo-inset: calc(var(--wrapper-margin) * 2);
+  --demo-gap: calc(2 * var(--u));
 }
 
 .demo-row {
@@ -181,7 +181,6 @@ html {
   top: 50%;
   transform: translateY(-50%);
 
-  /* consistent left/right inset inside the frame */
   left: var(--demo-inset);
   right: var(--demo-inset);
 
@@ -189,8 +188,8 @@ html {
   gap: var(--demo-gap);
   align-items: stretch;
 
-  /* NEVER OVERGROW FRAME */
-  height: min(var(--select-container-height), 80%);
+  /* ✅ height driven by frame height (prevents tiny default panels) */
+  height: min(60cqh, 80%);
   max-height: 100%;
 }
 
@@ -200,25 +199,14 @@ html {
   border-radius: calc(2 * var(--u));
   box-shadow: 0 calc(0.75 * var(--u)) calc(2 * var(--u)) rgba(0, 0, 0, 0.15);
   min-height: 0;
+  min-width: 0; /* critical for flex shrink */
 }
 
-/* ========================= */
-/* UPDATED FLEX BEHAVIOR     */
-/* ========================= */
-
-/* Let BOTH panels shrink/grow symmetrically,
-   so the outer left/right gaps remain visually even. */
-#select-container,
-#map-container {
-  flex: 1 1 0;   /* symmetric sizing */
-  min-width: 0;  /* IMPORTANT: allow flex children to shrink */
-}
-
-/* Keep your intended max sizes as caps (not hard "preferred" clamps) */
+/* ✅ Keep select always smaller than map, but allow both to fill row width */
 #select-container {
-  max-width: var(--select-container-width);
+  flex: 2 1 0;
 }
 
 #map-container {
-  max-width: var(--map-container-width);
+  flex: 3 1 0;
 }
