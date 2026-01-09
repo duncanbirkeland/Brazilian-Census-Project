@@ -7,5 +7,29 @@
 <p id="navbar-title">login</p>
 {% endblock %}
 {% block content %}
-<form>...</form>
+<div class = "demo">
+<div class="demo-panel" id = "register-container">
+<div class = "form">
+    <div class="form-field">
+        <label class="form-label" > email</label>
+        <input type = "email" class = "form-select" placeholder="user@example.com">
+
+  </div>
+    <div class="form-field">
+        <label class="form-label" > password </label>
+        <input type = "password" class = "form-select" placeholder="*********" >
+      </div>
+
+    <div class="form-spacer"></div>
+        <a href="register" class="form-link">
+            don't have an account? register
+        </a>
+    <button class="btn-primary" type="button">login</button>
+</div>
+</div>
+
+
+</div>
+
+
 {% endblock content %}

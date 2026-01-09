@@ -12,14 +12,15 @@ Home
                     <a href="login" class="nav-link">login</a>
 {% endblock %}
 {% block content %}
-<div class="demo-row">
+<div id="demo-row" class = "demo">
   <div id="select-container" class="demo-panel">
-    <div class="picker">
-      <h2 class="picker-title">DATA PICKER</h2>
+    <div class="form">
 
-      <div class="picker-field">
-        <label class="picker-label" for="category"> CATEGORY</label>
-        <select id="category" class="picker-select">
+      <h2 class="form-title">map selector</h2>
+
+      <div class="form-field">
+        <label class="form-label" for="category"> category</label>
+        <select id="category" class="form-select">
           <option>Population</option>
           <option>Income</option>
           <option>Education</option>
@@ -28,9 +29,9 @@ Home
       </div>
 
       <!-- dropdown row 2 -->
-      <div class="picker-field">
-        <label class="picker-label" for="demographic">Demographic</label>
-        <select id="demographic" class="picker-select">
+      <div class="form-field">
+        <label class="form-label" for="demographic">demographic</label>
+        <select id="demographic" class="form-select">
           <option>Age</option>
           <option>Sex</option>
           <option>Race</option>
@@ -38,9 +39,9 @@ Home
         </select>
       </div>
 
-      <div class="picker-field">
-        <label class="picker-label" for="year">Year</label>
-        <select id="year" class="picker-select">
+      <div class="form-field">
+        <label class="form-label" for="year">year</label>
+        <select id="year" class="form-select">
           <option>2010</option>
           <option>2020</option>
           <option>2022</option>
@@ -48,8 +49,8 @@ Home
         </select>
       </div>
 
-      <div class="picker-spacer"></div>
-      <div class="picker-actions">
+      <div class="form-spacer"></div>
+      <div class="form-actions">
         <button class="btn-secondary" type="button">Export</button>
         <button class="btn-secondary" type="button">Reset</button>
       </div>
