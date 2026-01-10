@@ -1,0 +1,14 @@
+[
+    {
+        "id": 1,
+        "name": "Surfing",
+        "duration": "14 hours",
+        "capacity": 1,
+        "location": "Fortnite",
+        "timedate": "2025-04-24 13:00:00",
+        "tickets_allocated": 1,
+        "has_ticket": 0,
+        "cancelled": 1,
+        "price": 0
+    }
+]

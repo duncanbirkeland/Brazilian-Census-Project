@@ -214,7 +214,7 @@ body {
 }
 
 /* Use a panel-local unit (pu) instead of the global --u */
-.form {
+.form-container {
   --pu: min(2cqw, 2cqh); /* scales with panel size */
 
   display: flex;
@@ -300,6 +300,10 @@ body {
 
 .form-link:active {
   color: var(--river-active);
+}
+.registerform{
+all: unset;           /* remove ALL browser default styles */
+  display: contents;
 }
 
 /* buttons */

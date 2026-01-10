@@ -1,0 +1,20 @@
+
+{% extends "navbar.html" %}
+{%  block head %}
+<title> Home </title>
+<meta name = "description" content = "This is the home page of the website and allows you to access all the tabs"> 
+{% endblock %}
+{% block content %}
+<div class= "headerdiv"> 
+    <h1> eventbyte.</h1>
+    <h2> ticketing made easy</h2>
+</div>
+
+<div id = "whiteblock">
+{% if information %}
+    {{ information }}
+    <br><br>
+{% endif %}
+</div>
+<!-- Add a white block to add contrast to the image-->
+{% endblock %}

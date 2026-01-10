@@ -1,0 +1,72 @@
+{% extends "navbar.html" %}
+{% block head %}
+<title> Dashboard </title>
+<script src='/static/js/modifyevents.js'></script>
+{% endblock %}
+{% block content %}
+<div id = "boxone" class = "box"> 
+<h2> Create Events </h2>
+<form action = '/addevent' id = "submitimage" method = "POST">
+    <input type = "text" name = "Ticketname" placeholder="Event name" class = "entryfields" required><br><br>
+    <input type = "text" name = "Ticketduration" placeholder="Duration" class = "entryfields" required><br><br>
+
+    <label for = "Ticketdate"> Date & Start time</label>
+
+    <input type = "datetime-local" name = "Ticketdate" id ="entrytimes"  required><br><br>
+
+    <label for = "Ticketcapacity"> Capacity</label>
+
+    <input type = "number" name = "Ticketcapacity" placeholder="Capacity" class = "capacityfield" required><br>
+    <input type = "text" name = "Ticketlocation" placeholder="Location" class = "entryfields" required><br><br>
+    <input type = "text" name = "Ticketprice" placeholder="Price" class = "entryfields" required><br><br>
+    <input type = "file" name = "filetoadd" id = "filetoadd" required>   
+    <!-- Display all the fields to create a new event with a break between these and the submit button-->
+    <br><br><br>
+    {% if boxoneerror %}
+        {{ boxoneerror }}
+        <br><br>
+    {% endif %}
+    <input type = "submit" id = "addsubmitbutton" class = "submitbutton" value = "CREATE EVENT">
+
+</form>
+
+</div>
+<div id = "boxtwo" class = "box"> 
+<h2> Modify Events</h2>
+<input type = "text" name = "Searchbar" id = 'searchbar' placeholder="Search for an event" class = "entryfields"><br><br>
+<div id = "dropdownmenu"></div>
+<!-- Have a searchbar allowing the user to search for an event-->
+<br>
+<form action = '/modifycapacity' method = "POST">
+    <input type = "hidden" value = None name = "modifyid" id = "modifyid">
+    <input type = "number" name = "Ticketcapacity" placeholder="Capacity" id = "changecapacity" class = "capacityfield" required><br>
+    <div class = "breakdiv" id = "removeifneed"></div>
+    <!-- Allows the user to change the capacity of the given event-->
+    {% if error %}
+        {{ error }}
+        <br><br>
+    {% endif %}
+
+    <input type = "submit" class = "submitbutton" value = "CHANGE CAPACITY">
+</form>
+
+<br>
+<form action="/removeevent" method = "POST">
+    <input type = "hidden" value = None  name = "cancelid" id = "cancelid">
+    <input type = "submit" class = "submitbutton" id = "red" value = "CANCEL EVENT">
+    <!-- Has a cancel event button with a hidden variable to return which event needs to be cancelled-->
+</form>
+</div>
+<div id = "boxthree" class = "box"> 
+<h2> Transactions</h2>
+{% for transaction in transactions %}
+    <div class="transaction">
+        {{ transaction.stringoftransaction | safe }}
+    </div>
+    <br>
+    <br>
+{% endfor %}
+</div>
+<!-- Show a list of all transactions overflow-y: auto is set in css to allow this to be scrollable -->
+
+{% endblock %}

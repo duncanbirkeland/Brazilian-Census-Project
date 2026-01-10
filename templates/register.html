@@ -6,26 +6,27 @@
 {% block navbar_center %}
 <p id="navbar-title">register</p>
 {% endblock %}
-
 {% block content %}
 <div class = "demo">
 <div class="demo-panel" id = "register-container">
-<div class = "form">
+<div class = "form-container" >
+    <form class = "registerform" method="POST" action="{{ url_for('register') }}">
     <div class="form-field">
         <label class="form-label" > email</label>
-        <input type = "email" class = "form-select" placeholder="user@example.com">
+        <input name = "email" type = "email" class = "form-select" placeholder="user@example.com">
 
   </div>
     <div class="form-field">
         <label class="form-label" > password </label>
-        <input type = "password" class = "form-select" placeholder="*********" >
+        <input name = "password" type = "password" class = "form-select" placeholder="*********" >
       </div>
 
     <div class="form-spacer"></div>
-        <a href="login" class="form-link">
-            already have an account? login
+        <a href="register" class="form-link">
+            Already have an account? Login
         </a>
-    <button class="btn-primary" type="button">register</button>
+    <button class="btn-primary" type="submit">register</button>
+      </form>
 </div>
 </div>
 

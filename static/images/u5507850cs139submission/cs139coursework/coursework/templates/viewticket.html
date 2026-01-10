@@ -1,0 +1,16 @@
+{% extends "navbar.html" %}
+
+{% block head %}
+<script src='/static/js/viewticket.js'></script>
+<meta name = "description" content = "This page shows a barcode of your ticket">
+
+{% endblock %}
+{% block content %}
+<div id = "ticketbox" class = "box">
+    <h2>Ticket</h2>
+<!-- Set the value of the hidden input to be the url to get to static/eventimages/ with the eventid converted to a string concatenated with png -->
+<input type = "hidden" id = "geteventid" value = "{{ url_for('static', filename='eventimages/' +event|string+ '.png') }}">
+<img src="{{ url_for('static', filename=barcodedata) }}" id = "barcoderesize">
+<!--Show an image based on the barcode of the given user-->
+</div>
+{% endblock %}

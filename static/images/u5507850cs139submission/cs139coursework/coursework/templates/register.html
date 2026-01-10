@@ -1,0 +1,27 @@
+
+{% extends "navbar.html" %}
+{%  block head %}
+<title> Register </title>
+<meta name = "description" content = "This page allows you to register a new account"> 
+{% endblock %}
+{% block content %}
+<div class = "box" id = "loginbox"><br>
+        <h2> Register </h2>
+        <form action = "/register" method="POST">
+            <input type ="email" id = "username" class = "entryfields" name = "username" placeholder="example@mail.com"><br><br>
+            <input type = "password" id = "password" class = "entryfields" name = "password" placeholder="Password"><br><br>
+            <a href = "/templates/login" class = "redirect"> Already Registered? </a>
+            <br>
+
+            <div class = "breakdiv"></div>
+            {% if errors %}
+                {% for error in errors %}
+                    <p>{{ error | striptags }}</p>
+                {% endfor %}
+            {% endif %}
+            <!-- Show all errors without the possibility of malicious tags-->
+            <input type = "submit" class = "submitbutton" value = "REGISTER">
+        </form>
+ 
+    </div>
+{% endblock %}

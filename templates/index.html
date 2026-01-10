@@ -8,13 +8,13 @@ Home
 <p id="navbar-title">brazilcensus</p>
 {% endblock %}
 {% block navbar_right %}
-                    <a href="register" class="nav-link">register</a>
-                    <a href="login" class="nav-link">login</a>
+                    <a href="{{ url_for('register') }}" class="nav-link">register</a>
+                    <a href="{{ url_for('login') }}" class="nav-link">login</a>
 {% endblock %}
 {% block content %}
 <div id="demo-row" class = "demo">
   <div id="select-container" class="demo-panel">
-    <div class="form">
+    <div class="form-container">
 
       <h2 class="form-title">map selector</h2>
 

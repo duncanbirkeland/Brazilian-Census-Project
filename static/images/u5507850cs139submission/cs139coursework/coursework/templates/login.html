@@ -1,0 +1,30 @@
+
+{% extends "navbar.html" %}
+{%  block head %}
+<title> Login </title>
+<meta name = "description" content = "This page allows you to login to your account">
+{% endblock %}
+{% block content %}
+<div class = "box" id = "loginbox"><br>
+        <h2> Login </h2>
+        <form action = "/login" method="POST">
+            <input type ="email" id = "username" class = "entryfields" name = "username" placeholder="example@mail.com"><br><br>
+            <input type = "password" id = "password" class = "entryfields" name = "password" placeholder="Password"><br><br>
+            <!-- Force the user to enter an email and create the email and password fields-->
+            <a href = "/templates/register" class = "redirect"> Haven't Registered? </a>
+            <br>
+            <div class = "breakdiv"></div>
+            {% if error %}
+                {{ error | striptags }}
+                <!-- Remove any tags to prevent html being inserted-->
+                <br><br>
+            {% endif %}
+            <!-- Show any login errors-->
+            <a href = "/templates/resetpassword" class = "redirect"> Forgotten password?</a>
+            <!-- Adds a link to reset password-->
+            <br><br>
+            <input type = "submit" class = "submitbutton" value = "LOGIN">
+        </form>
+ 
+    </div>
+{% endblock %}

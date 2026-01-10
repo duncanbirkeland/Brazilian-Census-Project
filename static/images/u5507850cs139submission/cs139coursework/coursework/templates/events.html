@@ -1,0 +1,50 @@
+{% extends "navbar.html" %}
+{% block head %}
+<meta name = "description" content = "This page shows a list of events and allows you to claim a ticket and view the barcode for this ticket"> 
+<title> Events </title>
+<script src='/static/js/displayevents.js'></script>
+{% endblock %}
+{% block content %}
+<div id = "flexcontainer">
+    <h2 id = "flexheader"> Upcoming Events </h2>   
+    <input type = "text" name = "searchbar" id = "flexeventbar" placeholder="Search for upcoming events">
+    <br><br>
+    <div id = "dropdownmenuflex"></div>
+    <input type = "hidden" id = "loggedin" value = "{{ issignedin }}">
+    <input type = "hidden" id = "geterror" value = "{{ error }}">
+
+    <!-- Adds a hidden variable to show hiden values-->
+    {% for i in range(0, dictionary|length, 2) %}
+    <div class="flex-row">
+        {% for item in dictionary[i:i+2] %}
+        <!-- Display the items in rows of 2-->
+            <div class="flex-box">
+                <input type = "hidden" id = "eventid" value = "{{ item.id }}">
+                <h2>{{ item.name  | striptags}}</h2>
+                <h3>Date & Time</h3>
+                <p>{{ item.timedate | striptags}}</p>
+                <h3>Duration</h3>
+                <p>{{ item.duration | striptags }}</p>
+                <h3>Location</h3>
+                <p>{{ item.location  | striptags}}</p>
+                <h3>Capacity</h3>
+                <!-- Display all the details of the item whilst removing any added tags-->
+                <p id = "{{ item.id }}capacity"></p>
+                <!--Gets the image in the static directory with directory eventimages and finding the item id as a string-->
+                <img class = "eventimage" src="{{ url_for('static', filename='eventimages/' +item.id|string+ '.png') }}"><br><br>
+
+                <input type = "hidden" id = "hasticket" value ="{{ item.has_ticket }}">
+                <input type="hidden" id="iscancelled" value="{{ item.cancelled }}">
+                <br>
+                <form action="/getticket" method="POST">
+                    <!-- Have a form by default to get a ticket-->
+                    <input type="hidden" value="{{ item.id }}" name="geteventid">
+                    <input type="submit" value="Get Ticket for {{ item.price }}" class="submitbutton" id = "ticketbutton">
+                </form>
+            </div>
+        {% endfor %}
+    </div>
+{% endfor %}
+
+</div>
+{% endblock %}  

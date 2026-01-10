@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1"> 
+		<link rel="stylesheet" href="/static/css/eventbyte.css" type="text/css">
+		<script src='/static/js/jquery-3.7.1.min.js'></script>
+		<script src="/static/js/navbarscript.js"></script>
+		<!-- Link the script to make changes to the navbartemplate as well as the same css and jquery for all files-->
+        {% block head %}
+        {% endblock %}
+		<!-- Allows other templates to have additional features in the head-->
+	</head>
+	<body>
+		<input type = "hidden" value = "{{ auth }}" id = "getloggedin">
+		<div id = "contained">
+		<input type = "hidden" id = "getvariable" value = "{{ super }}"> 
+		<!-- <img src="{{url_for('static', filename='background.jpg')}}"/> -->
+		<div class = "navbar">
+			<span id = "blockleft">
+				<a href = "/"> Eventbyte</a>
+				<a href = "/templates/events"> view events</a>
+			</span>
+        	<span id = "blockright">
+				{% if credit and not super %}
+                    <p id = "creditheader">{{ credit | striptags }} credits left</p>
+            	{% endif %}
+				<a href = "/templates/login" class = "loginhrefs">login</a> 
+				<a href = "/templates/register" class = "loginhrefs"> register</a>
+				<a href = "/logout"> logout </a>
+			</span>
+			<!--Have all the interactive links on the left of the screen and all the registration related links on the right hand side-->
+		</div>
+        <div>
+            {% block content %}
+            {% endblock %}
+			<!-- Allows other templates to have additional features in the body-->
+        </div>
+	</div>
+    </body>
+</html>
