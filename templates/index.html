@@ -8,9 +8,14 @@ Home
 <p id="navbar-title">brazilcensus</p>
 {% endblock %}
 {% block navbar_right %}
-                    <a href="{{ url_for('register') }}" class="nav-link">register</a>
-                    <a href="{{ url_for('login') }}" class="nav-link">login</a>
+    {% if session.get("user_id") %}
+        <a href="{{ url_for('logout') }}" class="nav-link">logout</a>
+    {% else %}
+        <a href="{{ url_for('register') }}" class="nav-link">register</a>
+        <a href="{{ url_for('login') }}" class="nav-link">login</a>
+    {% endif %}
 {% endblock %}
+
 {% block content %}
 <div id="demo-row" class = "demo">
   <div id="select-container" class="demo-panel">
@@ -60,7 +65,9 @@ Home
     </div>
   </div>
 
-  <div id="map-container" class="demo-panel"></div>
+  <div id="map-container" class="demo-panel">
+      {{ map_html | safe }}
+  </div>
 </div>
 {% endblock %}
 

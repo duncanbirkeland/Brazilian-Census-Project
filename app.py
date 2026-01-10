@@ -6,9 +6,9 @@ from flask import (
     redirect,
     url_for,
     flash,
-    session,
+    session
 )
-
+import folium
 from model import db, User
 
 app = Flask(__name__)
@@ -26,18 +26,31 @@ def login_required(view_func):
             flash("Please log in first.", "warning")
             return redirect(url_for("login"))
         return view_func(*args, **kwargs)
+
     return wrapper
 
 
 @app.route("/")
 def home():
-    return render_template("index.html", title="Brazilian census data")
+    # Center of Brazil
+    m = folium.Map(
+        location=[-14.2350, -51.9253],
+        zoom_start=4,
+        tiles="cartodbpositron"
+    )
 
+    folium.Marker(
+        location=[-15.793889, -47.882778],
+        popup="Brazil"
+    ).add_to(m)
 
-@app.route("/dashboard")
-@login_required
-def dashboard():
-    return render_template("dashboard.html", title="Dashboard")
+    map_html = m._repr_html_()
+
+    return render_template(
+        "index.html",
+        title="Brazilian census data",
+        map_html=map_html
+    )
 
 
 @app.route("/register", methods=["GET", "POST"])
