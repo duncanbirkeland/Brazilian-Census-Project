@@ -25,29 +25,37 @@ def norm(s: Optional[str]) -> str:
 def sort_key(item):
     return int(item["id"])
 
-
-def discover_religion_tables_2022() -> List[Dict[str, Any]]:
+def discover_tables_2022_censo() -> List[Dict[str, Any]]:
+    """
+    Discover ALL tables from Censo Demográfico (periodo=2022).
+    No thematic filtering.
+    """
     grouped = fetch_json(BASE_AGREGADOS, params={"periodo": 2022})
-
     results: List[Dict[str, Any]] = []
 
     for group in grouped:
-        group_name = group.get("nome", "") 
+        group_name = group.get("nome", "")
+        if "censo demografico" not in norm(group_name):
+            continue
+
         for ag in (group.get("agregados") or []):
-            name = ag.get("nome", "")
-            if "relig" in norm(name):
-                results.append({
-                    "id": str(ag["id"]),
-                    "table_name": name,
-                    "group_name": group_name,
-                })
+            results.append({
+                "id": str(ag["id"]),
+                "table_name": ag.get("nome"),
+                "group_name": group_name,
+            })
+
+    dedup = {t["id"]: t for t in results}
+    results = list(dedup.values())
 
     results.sort(key=sort_key)
+
     return results
 
 def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dict[str, Any]:
     catalog = {
         "source": "IBGE Agregados API",
+        "periodo": 2022,
         "tables_found": len(table_list),
         "tables": {}
     }
@@ -75,7 +83,6 @@ def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dic
                 for v in variaveis
             ],
 
-            # optional: list all members of each demographic dimension
             "classification_members": {
                 c.get("nome"): [
                     cat.get("nome")
@@ -92,13 +99,15 @@ def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dic
     return catalog
 
 if __name__ == "__main__":
-    tables = discover_religion_tables_2022()
-    print("Discovered tables:", len(tables))
-    print("First IDs:", [t["id"] for t in tables[:10]])
+    tables = discover_tables_2022_censo()
+    print("Total Censo Demográfico tables found:", len(tables))
+
+    tables = tables[:200]
+    print("Cataloging first 50 tables:", [t["id"] for t in tables])
 
     catalog = build_catalog(tables)
 
-    with open("sidra_religion_catalog_2022_api_only.json", "w", encoding="utf-8") as f:
+    with open("sidr a_catalog_2022_api_only.json", "w", encoding="utf-8") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
 
-    print("Saved -> sidra_religion_catalog_2022_api_only.json")
+    print("Saved -> sidra_catalog_2022_api_only.json")
