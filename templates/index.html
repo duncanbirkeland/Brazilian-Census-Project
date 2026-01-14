@@ -1,12 +1,14 @@
-
+{# templates/index.html #}
 {% extends "basetemplate.html" %}
 
 {% block title %}
 Home
 {% endblock %}
+
 {% block navbar_left %}
 <p id="navbar-title">brazilcensus</p>
 {% endblock %}
+
 {% block navbar_right %}
     {% if session.get("user_id") %}
         <a href="{{ url_for('logout') }}" class="nav-link">logout</a>
@@ -17,41 +19,30 @@ Home
 {% endblock %}
 
 {% block content %}
-<div id="demo-row" class = "demo">
+<div id="demo-row" class="demo">
   <div id="select-container" class="demo-panel">
     <div class="form-container">
 
       <h2 class="form-title">map selector</h2>
 
       <div class="form-field">
-        <label class="form-label" for="category"> category</label>
-        <select id="category" class="form-select">
-          <option>Population</option>
-          <option>Income</option>
-          <option>Education</option>
-          <option>Health</option>
-        </select>
+        <label class="form-label" for="category">category</label>
+        <select id="category" class="form-select"></select>
       </div>
 
-      <!-- dropdown row 2 -->
+      <div class="form-field">
+        <label class="form-label" for="variable">variable</label>
+        <select id="variable" class="form-select"></select>
+      </div>
+
       <div class="form-field">
         <label class="form-label" for="demographic">demographic</label>
-        <select id="demographic" class="form-select">
-          <option>Age</option>
-          <option>Sex</option>
-          <option>Race</option>
-          <option>Urban/Rural</option>
-        </select>
+        <select id="demographic" class="form-select"></select>
       </div>
 
       <div class="form-field">
-        <label class="form-label" for="year">year</label>
-        <select id="year" class="form-select">
-          <option>2010</option>
-          <option>2020</option>
-          <option>2022</option>
-          <option selected>2023</option>
-        </select>
+        <label class="form-label" for="classification">options</label>
+        <select id="classification" class="form-select"></select>
       </div>
 
       <div class="form-spacer"></div>
@@ -61,7 +52,6 @@ Home
       </div>
       <button class="btn-primary" type="button">View Correlations</button>
 
-
     </div>
   </div>
 
@@ -69,5 +59,70 @@ Home
       {{ map_html | safe }}
   </div>
 </div>
-{% endblock %}
 
+<script>
+  // Data shaped as: category -> { table_name, variables -> { var_name -> { demographics -> { demo -> [members] } } } }
+  const DATA = {{ dropdown_data | tojson }};
+
+  const categoryEl = document.getElementById("category");
+  const variableEl = document.getElementById("variable");
+  const demographicEl = document.getElementById("demographic");
+  const classificationEl = document.getElementById("classification");
+
+  function setOptions(selectEl, items, placeholder) {
+    selectEl.innerHTML = "";
+
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = placeholder;
+    ph.disabled = true;
+    ph.selected = true;
+    selectEl.appendChild(ph);
+
+    items.forEach(item => {
+      const opt = document.createElement("option");
+      opt.value = item;
+      opt.textContent = item;
+      selectEl.appendChild(opt);
+    });
+  }
+
+  function refreshVariables() {
+    const cat = categoryEl.value;
+    const vars = cat && DATA[cat] ? Object.keys(DATA[cat].variables || {}) : [];
+    setOptions(variableEl, vars, "Select variable");
+    setOptions(demographicEl, [], "Select demographic");
+    setOptions(classificationEl, [], "Select option");
+  }
+
+  function refreshDemographics() {
+    const cat = categoryEl.value;
+    const v = variableEl.value;
+    const demoMap = (cat && v && DATA[cat]?.variables?.[v]?.demographics) || {};
+    const demos = Object.keys(demoMap);
+    setOptions(demographicEl, demos, "Select demographic");
+    setOptions(classificationEl, [], "Select option");
+  }
+
+  function refreshClassifications() {
+    const cat = categoryEl.value;
+    const v = variableEl.value;
+    const d = demographicEl.value;
+    const members = DATA[cat]?.variables?.[v]?.demographics?.[d] || [];
+    setOptions(classificationEl, members, "Select option");
+  }
+
+  categoryEl.addEventListener("change", refreshVariables);
+  variableEl.addEventListener("change", refreshDemographics);
+  demographicEl.addEventListener("change", refreshClassifications);
+
+  // Initial load
+  (function init() {
+    const categories = Object.keys(DATA);
+    setOptions(categoryEl, categories, "Select category");
+    setOptions(variableEl, [], "Select variable");
+    setOptions(demographicEl, [], "Select demographic");
+    setOptions(classificationEl, [], "Select option");
+  })();
+</script>
+{% endblock %}

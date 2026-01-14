@@ -1,21 +1,23 @@
 import json
+import re
 import time
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import requests
 
 BASE_AGREGADOS = "https://servicodados.ibge.gov.br/api/v3/agregados"
 META_URL = "https://servicodados.ibge.gov.br/api/v3/agregados/{id}/metadados"
-
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
+# ============================
+# HTTP + normalization helpers
+# ============================
 
 def fetch_json(url: str, params: Optional[dict] = None) -> Any:
     r = requests.get(url, headers=HEADERS, params=params, timeout=60)
     r.raise_for_status()
     return r.json()
-
 
 def norm(s: Optional[str]) -> str:
     if not s:
@@ -24,10 +26,59 @@ def norm(s: Optional[str]) -> str:
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
     return " ".join(s.lower().split())
 
+WORD_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 
-def sort_key(item):
-    return int(item["id"])
+def tokens(s: str) -> List[str]:
+    return WORD_RE.findall(s)
 
+# ============================
+# Prefix matching (supports phrases)
+# ============================
+
+def phrase_prefix_match(phrase: str, toks: List[str]) -> bool:
+    """
+    Prefix-match a keyword/phrase against tokenized text.
+
+    - If phrase is a single token, matches any token that startswith(phrase).
+    - If phrase is multiple tokens (e.g. "estado civil"), matches any consecutive
+      window of tokens where each token startswith(corresponding phrase token).
+
+    This keeps matching robust to changing word endings (plural, gender, conjugation, etc.)
+    while still being strict enough to avoid many false positives.
+    """
+    p = norm(phrase)
+    if not p:
+        return False
+
+    p_toks = tokens(p)
+    if not p_toks:
+        return False
+
+    if len(p_toks) == 1:
+        pref = p_toks[0]
+        return any(t.startswith(pref) for t in toks)
+
+    n = len(p_toks)
+    for i in range(0, len(toks) - n + 1):
+        ok = True
+        for j in range(n):
+            if not toks[i + j].startswith(p_toks[j]):
+                ok = False
+                break
+        if ok:
+            return True
+
+    return False
+
+def any_prefix_match(prefixes: List[str], toks: List[str]) -> bool:
+    for p in prefixes:
+        if phrase_prefix_match(p, toks):
+            return True
+    return False
+
+# ============================
+# Discover Censo 2022 tables
+# ============================
 
 def discover_tables_2022_censo() -> List[Dict[str, Any]]:
     grouped = fetch_json(BASE_AGREGADOS, params={"periodo": 2022})
@@ -39,157 +90,215 @@ def discover_tables_2022_censo() -> List[Dict[str, Any]]:
             continue
 
         for ag in (group.get("agregados") or []):
-            results.append({
-                "id": str(ag["id"]),
-                "table_name": ag.get("nome"),
-                "group_name": group_name,
-            })
+            results.append(
+                {
+                    "id": str(ag["id"]),
+                    "table_name": ag.get("nome") or "",
+                    "group_name": group_name,
+                }
+            )
 
     dedup = {t["id"]: t for t in results}
-    results = list(dedup.values())
-    results.sort(key=sort_key)
-    return results
+    return sorted(dedup.values(), key=lambda x: int(x["id"]))
 
+# ============================
+# Tight category rules (prefix-based)
+# ============================
 
 CATEGORY_RULES: Dict[str, List[str]] = {
-    "religion": ["religiao", "religião"],
-    "indigenous": ["quilombola", "quilombolas", "indígena", "indigena", "indígenas", "indegina"],
+    # Strong fertility concepts only
+    # NOTE: intentionally NOT using "nasc" to avoid "registro de nascimento" → fertility.
+    "fertility": [
+        "fecund",      # fecundidade
+        "fertilid",    # fertilidade
+        "gravidez",
+        "gestac",      # gestacao
+        "parto",
+        "natalid",     # natalidade
+        "maternid",    # maternidade
+        "filhos",
+    ],
+
+    "religion": [
+        "religia",
+        "credo",
+        "culto",
+    ],
+
+    "literacy": [
+        "alfabetiz",
+        "leitur",
+        "escrit",
+    ],
+
+    "indigenous": [
+        "indig",
+        "quilomb",
+        "aldei",
+        "terra indig",
+    ],
+
     "households": [
-        "domicilio", "domicílio", "moradia", "familia", "família", "arranjo",
-        "agua", "água", "esgoto", "lixo", "energia", "internet", "telefone", "banheiro",
-        "aluguel", "propriedade", "adensamento", "comodo", "cômodo"
+        "domicil",
+        "moradi",
+        "habitac",
+        "famil",       # family/household context (kept here; population also has people/age/sex/etc)
+        "favel",
+        "comod",
     ],
+
     "population": [
-        "populacao", "população", "pessoa", "morador", "resident",
-        "sexo", "idade", "faixa etaria", "cor", "raca", "raça",
-        "nacionalidade", "naturalidade", "migr"
+        "populac",
+        "pesso",
+        "sex",
+        "idad",
+        "cor",
+        "rac",
+        "nacionalid",
+        "naturalid",
+        "migrac",
+        "estrange",
+        "obit",
+        "falec",
     ],
+
+    "sanitation": [
+        "agu",
+        "esgot",
+        "sanitar",
+        "lix",
+        "drenag",
+    ],
+
     "education": [
-        "educacao", "educação", "escola", "escolar", "alfabet", "analfabet",
-        "frequenta", "ensino", "fundamental", "medio", "médio", "superior",
-        "instrucao", "instrução"
+        "educac",
+        "escolar",
+        "ensin",
+        "instruc",
+        "curs",
+        "formac",
     ],
+
     "work_income": [
-        "ocupadas", "trabalho", "ocupacao", "trabalharam", "trabalhos", "rendimento"
+        "ocupac",
+        "empreg",
+        "trabalh",
+        "rend",
+        "salari",
     ],
+
     "marriage_family": [
-        "estado civil", "casad", "solteir", "divorci", "viuv", "uniao", "união",
-        "conjuge", "cônjuge", "parentesco", "composicao familiar", "familias"
+        "estado civil",
+        "casament",
+        "divorc",
+        "uniao",
+        "conjugal",
     ],
+
     "disability_health": [
-        "deficien", "deficiência", "pcd", "autismo", "cego", "surdo",
-        "dificuldade", "limitacao", "limitação", "saude", "saúde"
+        "deficien",
+        "pcd",
+        "autism",
+        "ceg",
+        "surd",
+        "limitac",
+        "dificuldad",
+        "saud",
     ],
 }
 
-CATEGORY_PRIORITY: List[str] = [
-    "marriage_family",
-    "disability_health",
-    "religion",
-    "education",
-    "work_income",
-    "households",
-    "indigenous",
-    "population"
-]
+ALL_CATEGORIES = list(CATEGORY_RULES.keys()) + ["miscellaneous"]
 
+# ============================
+# Categorization logic
+# ============================
 
-def table_text_blob(table_name: Optional[str], variaveis: List[Dict[str, Any]]) -> str:
-    parts: List[str] = []
-    if table_name:
-        parts.append(table_name)
-    for v in variaveis or []:
-        if v.get("nome"):
-            parts.append(str(v["nome"]))
-    return norm(" | ".join(parts))
-
-
-def categorize_table(
-    table_name: Optional[str],
-    variaveis: List[Dict[str, Any]],
-) -> Tuple[str, List[str]]:
-    blob = table_text_blob(table_name, variaveis)
+def categorize_text(text: str) -> List[str]:
+    blob = norm(text)
+    if not blob:
+        return []
+    toks = tokens(blob)
 
     matched: List[str] = []
     for cat, keywords in CATEGORY_RULES.items():
-        for kw in keywords:
-            if norm(kw) in blob:
-                matched.append(cat)
-                break
+        if any_prefix_match(keywords, toks):
+            matched.append(cat)
+    return matched
 
-    if not matched:
-        return "miscellaneous", []
+def all_variables_indigenous(variables: List[Dict[str, Any]]) -> bool:
+    if not variables:
+        return False
 
-    for cat in CATEGORY_PRIORITY:
-        if cat in matched:
-            return cat, matched
-
-    return matched[0], matched
-
+    indig_kws = CATEGORY_RULES["indigenous"]
+    for v in variables:
+        name = norm(v.get("nome"))
+        if not any_prefix_match(indig_kws, tokens(name)):
+            return False
+    return True
 
 # ============================
-# Indigenous override helpers
+# Build catalog (NO primary category)
 # ============================
-
-INDIGENOUS_KWS = [norm(k) for k in CATEGORY_RULES["indigenous"]]
-
-
-def variable_mentions_indigenous(v: Dict[str, Any]) -> bool:
-    name = norm(v.get("nome") or "")
-    return bool(name) and any(kw in name for kw in INDIGENOUS_KWS)
-
-
-def all_variables_indigenous(variaveis: List[Dict[str, Any]]) -> bool:
-    return bool(variaveis) and all(variable_mentions_indigenous(v) for v in variaveis)
-
 
 def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dict[str, Any]:
-    all_categories = list(CATEGORY_RULES.keys()) + ["miscellaneous"]
-
     catalog: Dict[str, Any] = {
         "source": "IBGE Agregados API",
         "periodo": 2022,
         "tables_found": len(table_list),
-        "categories": {cat: [] for cat in all_categories},
-        "tables": {}
+        # category -> [table_ids...], tables can appear in multiple categories
+        "categories": {cat: [] for cat in ALL_CATEGORIES},
+        # id -> table payload
+        "tables": {},
     }
 
     for t in table_list:
         meta = fetch_json(META_URL.format(id=t["id"]))
+        classificacoes = meta.get("classificacoes") or []
+        variaveis = meta.get("variaveis") or []
 
-        classificacoes = meta.get("classificacoes", []) or []
-        variaveis = meta.get("variaveis", []) or []
+        # Scan all classification names + table name
+        texts_to_scan: List[str] = []
+        for c in classificacoes:
+            if c.get("nome"):
+                texts_to_scan.append(c["nome"])
+        if t.get("table_name"):
+            texts_to_scan.append(t["table_name"])
 
-        primary_cat, matched_cats = categorize_table(
-            t.get("table_name"),
-            variaveis
-        )
+        # Collect ALL categories that match ANY scanned text
+        matched_set = set()
+        for txt in texts_to_scan:
+            for cat in categorize_text(txt):
+                matched_set.add(cat)
 
-        # ✅ FORCE indigenous if all variables reference indigenous
+        # Indigenous override: if ALL variables are indigenous, force include indigenous
         if all_variables_indigenous(variaveis):
-            primary_cat = "indigenous"
-            if "indigenous" not in matched_cats:
-                matched_cats = ["indigenous"] + matched_cats
+            matched_set.add("indigenous")
 
+        matched_categories = sorted(matched_set)
+
+        # If nothing matched, mark as miscellaneous
+        if not matched_categories:
+            matched_categories = ["miscellaneous"]
+
+        # Add this table ID into every category bucket it belongs to
+        for cat in matched_categories:
+            catalog["categories"].setdefault(cat, []).append(t["id"])
+
+        # Build table payload
         table_payload = {
             "table_name": t["table_name"],
             "group_name": t["group_name"],
-            "primary_category": primary_cat,
-            "matched_categories": matched_cats,
-
+            "categories": matched_categories,
             "demographics": [c.get("nome") for c in classificacoes if c.get("nome")],
-
             "variables": [
                 {
                     "variable_id": v.get("id"),
                     "variable_name": v.get("nome"),
                     "unit": v.get("unidade"),
                     "decimals": v.get("decimais"),
-                    "demographics": [c.get("nome") for c in classificacoes if c.get("nome")]
                 }
                 for v in variaveis
             ],
-
             "classification_members": {
                 c.get("nome"): [
                     cat.get("nome")
@@ -198,16 +307,21 @@ def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dic
                 ]
                 for c in classificacoes
                 if c.get("nome")
-            }
+            },
         }
 
         catalog["tables"][t["id"]] = table_payload
-        catalog["categories"].setdefault(primary_cat, []).append(t["id"])
-
         time.sleep(sleep_s)
+
+    # Optional: sort ids inside each category
+    for cat, ids in catalog["categories"].items():
+        catalog["categories"][cat] = sorted(ids, key=lambda x: int(x))
 
     return catalog
 
+# ============================
+# Main
+# ============================
 
 if __name__ == "__main__":
     tables = discover_tables_2022_censo()
@@ -215,13 +329,14 @@ if __name__ == "__main__":
 
     catalog = build_catalog(tables)
 
-    print("\nTables per PRIMARY category:")
+    print("\nTables per category (multi-label):")
     counts = [(cat, len(ids)) for cat, ids in catalog["categories"].items()]
     counts.sort(key=lambda x: x[1], reverse=True)
     for cat, n in counts:
-        print(f"  {cat}: {n}")
+        print(f" {cat}: {n}")
 
-    with open("sidra_catalog_2022_api_only.json", "w", encoding="utf-8") as f:
+    out_path = "sidra_catalog_2022_api_multi_category_prefix.json"
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
 
-    print("\nSaved -> sidra_catalog_2022_api_only.json")
+    print(f"\nSaved -> {out_path}")
