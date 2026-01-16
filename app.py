@@ -31,76 +31,59 @@ def load_catalog() -> dict:
     with CATALOG_PATH.open("r", encoding="utf-8") as f:
         return json.load(f)
 
-def select_one_table_per_category(payload: dict) -> dict:
-    """
-    Returns mapping: category -> table_id
-    Picks the first table_id in each category list that exists in payload["tables"].
-    """
-    categories = payload.get("categories", {})
-    tables = payload.get("tables", {})
-    chosen = {}
-
-    for category, table_ids in categories.items():
-        if not table_ids:
-            continue
-        for tid in table_ids:
-            tid = str(tid)
-            if tid in tables:
-                chosen[category] = tid
-                break
-
-    return chosen
-
 def build_dropdown_data(payload: dict) -> dict:
     """
-    Structure sent to the template:
+    Returns a structure for the frontend to:
+      - multi-select categories
+      - find intersection of tables across selected categories
+      - rank tables by fewest extra categories beyond the selection
+      - then drill down into variables/demographics/options
 
+    Shape:
     {
-      "population": {
-        "table_name": "...",
-        "variables": {
-          "População residente": {
-            "demographics": {
-              "Sexo": ["Total","Homens",...],
-              "Lugar de nascimento": [...]
-            }
-          },
-          ...
-        }
-      },
-      ...
+      "categories": { "population": ["617","631",...], ... },
+      "tables": {
+         "617": {
+            "table_name": "...",
+            "categories": ["population", ...],
+            "variables": ["Brasileiros natos", ...],  # names for UI
+            "demographics": ["Unidade ...", "Grupo de idade"],
+            "classification_members": { demoName: [members...] }
+         },
+         ...
+      }
     }
     """
-    tables = payload.get("tables", {})
-    chosen = select_one_table_per_category(payload)
+    categories_map = payload.get("categories", {}) or {}
+    tables = payload.get("tables", {}) or {}
 
-    out = {}
-    for category, table_id in chosen.items():
-        t = tables.get(table_id)
-        if not t:
-            continue
-
+    out_tables = {}
+    for tid, t in tables.items():
         demographics = t.get("demographics", []) or []
         class_members = t.get("classification_members", {}) or {}
+        variables = [
+            v.get("variable_name")
+            for v in (t.get("variables", []) or [])
+            if v.get("variable_name")
+        ]
 
-        demo_map = {d: class_members.get(d, []) for d in demographics}
-
-        var_map = {}
-        for v in (t.get("variables", []) or []):
-            var_name = v.get("variable_name")
-            if not var_name:
-                continue
-            # Your requirement: demographics available for that variable.
-            # In your catalog sample, variables share the same demographics per table,
-            # so we attach the table demographics to each variable.
-            var_map[var_name] = {"demographics": demo_map}
-
-        out[category] = {
+        out_tables[str(tid)] = {
             "table_name": t.get("table_name"),
-            "variables": var_map
+            "categories": t.get("categories", []) or [],
+            "variables": variables,
+            "demographics": demographics,
+            "classification_members": {
+                d: (class_members.get(d, []) or []) for d in demographics
+            },
         }
 
-    return out
+    # ensure ids are strings (frontend-friendly)
+    out_categories = {k: [str(x) for x in (v or [])] for k, v in categories_map.items()}
+
+    return {
+        "categories": out_categories,
+        "tables": out_tables,
+    }
 
 # Load once at startup
 CATALOG = load_catalog()
