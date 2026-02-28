@@ -36,16 +36,6 @@ def tokens(s: str) -> List[str]:
 # ============================
 
 def phrase_prefix_match(phrase: str, toks: List[str]) -> bool:
-    """
-    Prefix-match a keyword/phrase against tokenized text.
-
-    - If phrase is a single token, matches any token that startswith(phrase).
-    - If phrase is multiple tokens (e.g. "estado civil"), matches any consecutive
-      window of tokens where each token startswith(corresponding phrase token).
-
-    This keeps matching robust to changing word endings (plural, gender, conjugation, etc.)
-    while still being strict enough to avoid many false positives.
-    """
     p = norm(phrase)
     if not p:
         return False
@@ -106,47 +96,20 @@ def discover_tables_2022_censo() -> List[Dict[str, Any]]:
 # ============================
 
 CATEGORY_RULES: Dict[str, List[str]] = {
-    # Strong fertility concepts only
-    # NOTE: intentionally NOT using "nasc" to avoid "registro de nascimento" → fertility.
     "fertility": [
-        "fecund",      # fecundidade
-        "fertilid",    # fertilidade
+        "fecund",
+        "fertilid",
         "gravidez",
-        "gestac",      # gestacao
+        "gestac",
         "parto",
-        "natalid",     # natalidade
-        "maternid",    # maternidade
+        "natalid",
+        "maternid",
         "filhos",
     ],
-
-    "religion": [
-        "religia",
-        "credo",
-        "culto",
-    ],
-
-    "literacy": [
-        "alfabetiz",
-        "leitur",
-        "escrit",
-    ],
-
-    "indigenous": [
-        "indig",
-        "quilomb",
-        "aldei",
-        "terra indig",
-    ],
-
-    "households": [
-        "domicil",
-        "moradi",
-        "habitac",
-        "famil",       # family/household context (kept here; population also has people/age/sex/etc)
-        "favel",
-        "comod",
-    ],
-
+    "religion": ["religia", "credo", "culto"],
+    "literacy": ["alfabetiz", "leitur", "escrit"],
+    "indigenous": ["indig", "quilomb", "aldei", "terra indig"],
+    "households": ["domicil", "moradi", "habitac", "famil", "favel", "comod"],
     "population": [
         "populac",
         "pesso",
@@ -161,50 +124,11 @@ CATEGORY_RULES: Dict[str, List[str]] = {
         "obit",
         "falec",
     ],
-
-    "sanitation": [
-        "agu",
-        "esgot",
-        "sanitar",
-        "lix",
-        "drenag",
-    ],
-
-    "education": [
-        "educac",
-        "escolar",
-        "ensin",
-        "instruc",
-        "curs",
-        "formac",
-    ],
-
-    "work_income": [
-        "ocupac",
-        "empreg",
-        "trabalh",
-        "rend",
-        "salari",
-    ],
-
-    "marriage_family": [
-        "estado civil",
-        "casament",
-        "divorc",
-        "uniao",
-        "conjugal",
-    ],
-
-    "disability_health": [
-        "deficien",
-        "pcd",
-        "autism",
-        "ceg",
-        "surd",
-        "limitac",
-        "dificuldad",
-        "saud",
-    ],
+    "sanitation": ["agu", "esgot", "sanitar", "lix", "drenag"],
+    "education": ["educac", "escolar", "ensin", "instruc", "curs", "formac"],
+    "work_income": ["ocupac", "empreg", "trabalh", "rend", "salari"],
+    "marriage_family": ["estado civil", "casament", "divorc", "uniao", "conjugal"],
+    "disability_health": ["deficien", "pcd", "autism", "ceg", "surd", "limitac", "dificuldad", "saud"],
 }
 
 ALL_CATEGORIES = list(CATEGORY_RULES.keys()) + ["miscellaneous"]
@@ -236,6 +160,25 @@ def all_variables_indigenous(variables: List[Dict[str, Any]]) -> bool:
             return False
     return True
 
+def _member_id(cat: Dict[str, Any]) -> Optional[str]:
+    """
+    Some payloads may have int ids; normalize to str.
+    """
+    cid = cat.get("id")
+    if cid is None:
+        return None
+    return str(cid)
+
+def _classification_id(c: Dict[str, Any]) -> Optional[str]:
+    """
+    Classification (dimension) id from meta['classificacoes'][...]['id'].
+    Normalize to str.
+    """
+    cid = c.get("id")
+    if cid is None:
+        return None
+    return str(cid)
+
 # ============================
 # Build catalog (NO primary category)
 # ============================
@@ -245,9 +188,7 @@ def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dic
         "source": "IBGE Agregados API",
         "periodo": 2022,
         "tables_found": len(table_list),
-        # category -> [table_ids...], tables can appear in multiple categories
         "categories": {cat: [] for cat in ALL_CATEGORIES},
-        # id -> table payload
         "tables": {},
     }
 
@@ -270,21 +211,45 @@ def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dic
             for cat in categorize_text(txt):
                 matched_set.add(cat)
 
-        # Indigenous override: if ALL variables are indigenous, force include indigenous
+        # Indigenous override
         if all_variables_indigenous(variaveis):
             matched_set.add("indigenous")
 
-        matched_categories = sorted(matched_set)
+        matched_categories = sorted(matched_set) or ["miscellaneous"]
 
-        # If nothing matched, mark as miscellaneous
-        if not matched_categories:
-            matched_categories = ["miscellaneous"]
-
-        # Add this table ID into every category bucket it belongs to
         for cat in matched_categories:
             catalog["categories"].setdefault(cat, []).append(t["id"])
 
-        # Build table payload
+        # ✅ NEW: store classification (dimension) ID per demographic name
+        classification_ids: Dict[str, str] = {}
+        for c in classificacoes:
+            cname = c.get("nome")
+            cid = _classification_id(c)
+            if cname and cid:
+                classification_ids[cname] = cid
+
+        # ✅ classification members: include member ID + name
+        classification_members: Dict[str, List[Dict[str, Optional[str]]]] = {}
+        for c in classificacoes:
+            cname = c.get("nome")
+            if not cname:
+                continue
+
+            members: List[Dict[str, Optional[str]]] = []
+            for cat in (c.get("categorias") or []):
+                mname = cat.get("nome")
+                mid = _member_id(cat)
+                if not mname:
+                    continue
+                members.append(
+                    {
+                        "id": mid,   # member/category id (e.g. 1140)
+                        "name": mname,
+                    }
+                )
+
+            classification_members[cname] = members
+
         table_payload = {
             "table_name": t["table_name"],
             "group_name": t["group_name"],
@@ -299,21 +264,16 @@ def build_catalog(table_list: List[Dict[str, Any]], sleep_s: float = 0.2) -> Dic
                 }
                 for v in variaveis
             ],
-            "classification_members": {
-                c.get("nome"): [
-                    cat.get("nome")
-                    for cat in (c.get("categorias") or [])
-                    if cat.get("nome")
-                ]
-                for c in classificacoes
-                if c.get("nome")
-            },
+
+            # ✅ NEW: demographic name -> classification (dimension) id for /c{ID}/{member}
+            "classification_ids": classification_ids,
+
+            "classification_members": classification_members,
         }
 
         catalog["tables"][t["id"]] = table_payload
         time.sleep(sleep_s)
 
-    # Optional: sort ids inside each category
     for cat, ids in catalog["categories"].items():
         catalog["categories"][cat] = sorted(ids, key=lambda x: int(x))
 

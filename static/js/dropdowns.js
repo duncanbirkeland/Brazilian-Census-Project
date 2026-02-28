@@ -142,16 +142,58 @@
   tableEl.addEventListener("change", () => {
     const t = DATA.tables[tableEl.value];
     setOptions(variableEl, t?.variables || [], "Select variable");
+
+    // reset downstream
+    setOptions(demographicEl, [], "Select demographic");
+    setOptions(classificationEl, [], "Select option");
   });
 
   variableEl.addEventListener("change", () => {
     const t = DATA.tables[tableEl.value];
     setOptions(demographicEl, t?.demographics || [], "Select demographic");
+
+    // reset downstream
+    setOptions(classificationEl, [], "Select option");
   });
 
   demographicEl.addEventListener("change", () => {
     const t = DATA.tables[tableEl.value];
-    setOptions(classificationEl, t?.classification_members?.[demographicEl.value] || [], "Select option");
+    setOptions(
+      classificationEl,
+      t?.classification_members?.[demographicEl.value] || [],
+      "Select option"
+    );
+  });
+
+  // ✅ UPDATED: uses classification_ids (dimension id) + selected member id
+  classificationEl.addEventListener("change", async () => {
+    const table = tableEl.value;
+    const variable = variableEl.value;
+    const demographic = demographicEl.value;
+
+    // classification (dimension) id: used as /c{ID}/...
+    const classificationCode = DATA.tables[table]?.classification_ids?.[demographic];
+
+    // selected member/category id: used as /c{ID}/{member}
+    const category = classificationEl.value;
+
+    if (!table || !variable) return;
+
+    console.log("Sending:", { table, variable, demographic, classificationCode, category });
+
+    const res = await fetch("/api/sidra-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        table,
+        variable,
+        classification_code: classificationCode,
+        category
+      })
+    });
+
+    const result = await res.json();
+    console.log("SIDRA result:", result);
   });
 
   // init
