@@ -1,7 +1,11 @@
 # app.py
 from functools import wraps
+from pathlib import Path
+import json
+
 import geopandas as gpd
 import requests
+import folium
 from flask import (
     Flask,
     render_template,
@@ -10,11 +14,8 @@ from flask import (
     url_for,
     flash,
     session,
-    jsonify
+    jsonify,
 )
-import folium
-import json
-from pathlib import Path
 
 from model import db, User
 
@@ -27,12 +28,13 @@ db.init_app(app)
 
 # ---------- Catalog loading + dropdown data ----------
 
-# Make the JSON path robust relative to this file (not the working directory)
 CATALOG_PATH = Path(__file__).resolve().parent / "sidra_catalog_2022_api_multi_category_prefix.json"
+
 
 def load_catalog() -> dict:
     with CATALOG_PATH.open("r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def build_dropdown_data(payload: dict) -> dict:
     """
@@ -50,9 +52,9 @@ def build_dropdown_data(payload: dict) -> dict:
 
     for tid, t in tables.items():
         demographics = t.get("demographics", []) or []
-        class_members = t.get("classification_members", {}) or []
+        class_members = t.get("classification_members", {}) or {}
 
-        # ✅ variables: convert to value/label for dropdown
+        # variables: convert to value/label for dropdown
         variables = [
             {
                 "value": str(v.get("variable_id")) if isinstance(v, dict) else str(v),
@@ -66,12 +68,9 @@ def build_dropdown_data(payload: dict) -> dict:
             "categories": t.get("categories", []) or [],
             "variables": variables,
             "demographics": demographics,
-
-            # ✅ NEW: pass classification (dimension) IDs to frontend
-            # demographic name -> classification id (used in /c{ID}/...)
+            # ✅ NEW: demographic name -> classification id (dimension id, used in /c{ID}/...)
             "classification_ids": t.get("classification_ids", {}) or {},
-
-            # ✅ UPDATED: convert id/name to value/label for dropdown
+            # ✅ UPDATED: id/name -> value/label for dropdown
             "classification_members": {
                 d: [
                     {
@@ -84,20 +83,14 @@ def build_dropdown_data(payload: dict) -> dict:
             },
         }
 
-    # ensure table ids are strings (frontend-friendly)
-    out_categories = {
-        k: [str(x) for x in (v or [])]
-        for k, v in categories_map.items()
-    }
+    out_categories = {k: [str(x) for x in (v or [])] for k, v in categories_map.items()}
 
-    return {
-        "categories": out_categories,
-        "tables": out_tables,
-    }
+    return {"categories": out_categories, "tables": out_tables}
 
-# Load once at startup
+
 CATALOG = load_catalog()
 DROPDOWN_DATA = build_dropdown_data(CATALOG)
+
 
 def login_required(view_func):
     @wraps(view_func)
@@ -109,53 +102,53 @@ def login_required(view_func):
 
     return wrapper
 
-# ---------- Routes ----------
 
-from pathlib import Path
-import json
-import folium
-import geopandas as gpd
+# ---------- Routes ----------
 
 @app.route("/")
 def home():
-    # --- Load shapefile (all parts must be in same folder) ---
-    shp_path = Path(app.static_folder) / "br_regioes_2022" / "BR_Regioes_2022.shp"
-    if not shp_path.exists():
-        raise FileNotFoundError(f"Missing shapefile: {shp_path}")
+    # --- Load shapefiles ---
+    regioes_path = Path(app.static_folder) / "BR_Regioes_2022" / "BR_Regioes_2022.shp"
+    uf_path = Path(app.static_folder) / "BR_UF_2022" / "BR_UF_2022.shp"
 
-    gdf = gpd.read_file(shp_path)
+    if not regioes_path.exists():
+        raise FileNotFoundError(f"Missing shapefile: {regioes_path}")
+    if not uf_path.exists():
+        raise FileNotFoundError(f"Missing shapefile: {uf_path}")
+
+    regioes_gdf = gpd.read_file(regioes_path)
+    uf_gdf = gpd.read_file(uf_path)
 
     # Reproject to WGS84 (Leaflet expects lat/lon)
-    if gdf.crs is not None and gdf.crs.to_epsg() != 4326:
-        gdf = gdf.to_crs(epsg=4326)
+    if regioes_gdf.crs is not None and regioes_gdf.crs.to_epsg() != 4326:
+        regioes_gdf = regioes_gdf.to_crs(epsg=4326)
 
-    # Convert to GeoJSON dict (includes attributes -> properties)
-    brazil_geojson = json.loads(gdf.to_json())
+    if uf_gdf.crs is not None and uf_gdf.crs.to_epsg() != 4326:
+        uf_gdf = uf_gdf.to_crs(epsg=4326)
 
-    # --- Map (no basemap tiles) ---
+    # Optional debug: print available columns once
+    print("REGIOES columns:", list(regioes_gdf.columns))
+    print("UF columns:", list(uf_gdf.columns))
+
+    # Convert to GeoJSON dict
+    regioes_geojson = json.loads(regioes_gdf.to_json())
+    uf_geojson = json.loads(uf_gdf.to_json())
+
+    # --- Map ---
     m = folium.Map(
         location=[-14.2350, -51.9253],
         zoom_start=4,
         tiles=None
     )
 
-    # Fit view to the layer so it shows up
-    minx, miny, maxx, maxy = gdf.total_bounds
+    # Fit to Brazil bounds using regions layer
+    minx, miny, maxx, maxy = regioes_gdf.total_bounds
     m.fit_bounds([[miny, minx], [maxy, maxx]])
 
-    # Tooltip fields: take first few non-geometry columns
-    cols = [c for c in gdf.columns if c != "geometry"]
-    tooltip_fields = cols[:5]  # adjust or replace with specific IBGE fields
-
-    tooltip = folium.GeoJsonTooltip(
-        fields=tooltip_fields,
-        aliases=[f"{c}: " for c in tooltip_fields],
-        sticky=True
-    ) if tooltip_fields else None
-
-    folium.GeoJson(
-        brazil_geojson,
-        name="Brazil",
+    # Regions layer (N2)
+    regioes_layer = folium.GeoJson(
+        regioes_geojson,
+        name="Regions",
         style_function=lambda feature: {
             "fillColor": "#3388ff",
             "color": "#222222",
@@ -166,8 +159,27 @@ def home():
             "weight": 3,
             "fillOpacity": 0.45,
         },
-        tooltip=tooltip
-    ).add_to(m)
+        show=True,
+    )
+    regioes_layer.add_to(m)
+
+    # UF layer (N3)
+    uf_layer = folium.GeoJson(
+        uf_geojson,
+        name="UFs",
+        style_function=lambda feature: {
+            "fillColor": "#3388ff",
+            "color": "#222222",
+            "weight": 1,
+            "fillOpacity": 0.25,
+        },
+        highlight_function=lambda feature: {
+            "weight": 3,
+            "fillOpacity": 0.45,
+        },
+        show=False,
+    )
+    uf_layer.add_to(m)
 
     map_html = m._repr_html_()
 
@@ -175,7 +187,9 @@ def home():
         "index.html",
         title="Brazilian census data",
         map_html=map_html,
-        dropdown_data=DROPDOWN_DATA
+        dropdown_data=DROPDOWN_DATA,
+        regioes_layer_name=regioes_layer.get_name(),
+        uf_layer_name=uf_layer.get_name(),
     )
 
 @app.route("/register", methods=["GET", "POST"])
@@ -202,6 +216,7 @@ def register():
 
     return render_template("register.html", title="Register")
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -219,27 +234,29 @@ def login():
 
     return render_template("login.html", title="Login")
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     flash("Logged out.", "info")
     return redirect(url_for("home"))
 
+
 @app.route("/api/sidra-data", methods=["POST"])
 def sidra_data():
-    data = request.json
+    data = request.json or {}
 
     table = data.get("table")
     variable = data.get("variable")
-    classification = data.get("classification_code")
-    category = data.get("category")
+    classification = data.get("classification_code")  # dimension id (for /c{ID}/...)
+    category = data.get("category")                  # member id
 
     if not all([table, variable]):
         return jsonify({"error": "Missing parameters"}), 400
 
     period = "2022"
 
-    def fetch_level(level):
+    def fetch_level(level: str):
         url = (
             f"https://apisidra.ibge.gov.br/values/"
             f"t/{table}/v/{variable}/p/{period}/{level}/all"
@@ -248,13 +265,15 @@ def sidra_data():
         if classification and category:
             url += f"/c{classification}/{category}"
 
-        response = requests.get(url)
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
         raw = response.json()
 
         rows = raw[1:]  # remove header row
 
         cleaned = {}
         for row in rows:
+            # D3C is the code for the geography level (n2/n3) in this endpoint response
             cleaned[str(row["D3C"])] = float(row["V"]) if row["V"] not in ["-", None] else 0
 
         return cleaned
@@ -263,13 +282,11 @@ def sidra_data():
         data_n2 = fetch_level("n2")  # macroregions
         data_n3 = fetch_level("n3")  # states
 
-        return jsonify({
-            "n2": data_n2,
-            "n3": data_n3
-        })
+        return jsonify({"n2": data_n2, "n3": data_n3})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     with app.app_context():

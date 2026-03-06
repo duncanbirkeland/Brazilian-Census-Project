@@ -20,63 +20,70 @@ Home
 
 {% block content %}
 <div id="demo-row" class="demo">
-    <div id="select-container" class="demo-panel">
-        <div class="form-container">
+  <div id="select-container" class="demo-panel">
+    <div class="form-container">
 
-            <h2 class="form-title">map selector</h2>
+      <h2 class="form-title">map selector</h2>
 
-            <div class="form-field">
-                <label class="form-label" for="category-search">categories</label>
+      <div class="form-field">
+        <label class="form-label" for="category-search">categories</label>
 
-                <input
-                        id="category-search"
-                        class="form-select"
-                        type="text"
-                        placeholder="Search categories..."
-                />
+        <input
+          id="category-search"
+          class="form-select"
+          type="text"
+          placeholder="Search categories..."
+        />
 
-                <div id="category-chips" class="chip-row"></div>
+        <div id="category-chips" class="chip-row"></div>
 
-                <div id="category-list" class="checkbox-list"></div>
-            </div>
+        <div id="category-list" class="checkbox-list"></div>
+      </div>
 
-            <div class="form-field">
-                <label class="form-label" for="table">table (top matches)</label>
-                <select id="table" class="form-select"></select>
-            </div>
+      <div class="form-field">
+        <label class="form-label" for="table">table (top matches)</label>
+        <select id="table" class="form-select"></select>
+      </div>
 
-            <div class="form-field">
-                <label class="form-label" for="variable">variable</label>
-                <select id="variable" class="form-select"></select>
-            </div>
+      <div class="form-field">
+        <label class="form-label" for="variable">variable</label>
+        <select id="variable" class="form-select"></select>
+      </div>
 
-            <div class="form-field">
-                <label class="form-label" for="demographic">demographic</label>
-                <select id="demographic" class="form-select"></select>
-            </div>
+      <div class="form-field">
+        <label class="form-label" for="demographic">demographic</label>
+        <select id="demographic" class="form-select"></select>
+      </div>
 
-            <div class="form-field">
-                <label class="form-label" for="classification">options</label>
-                <select id="classification" class="form-select"></select>
-            </div>
+      <div class="form-field">
+        <label class="form-label" for="classification">options</label>
+        <select id="classification" class="form-select"></select>
+      </div>
 
-            <div class="form-spacer"></div>
-            <div class="form-actions">
-                <button class="btn-secondary" type="button">Export</button>
-                <button class="btn-secondary" type="button">Reset</button>
-            </div>
-            <button class="btn-primary" type="button">View Correlations</button>
+      <div class="form-spacer"></div>
+      <div class="form-actions">
+        <button class="btn-secondary" type="button">Export</button>
+        <button class="btn-secondary" type="button">Reset</button>
+      </div>
+      <button class="btn-primary" type="button">View Correlations</button>
 
-        </div>
     </div>
+  </div>
 
-    <div id="map-container" class="demo-panel">
-        {{ map_html | safe }}
-    </div>
+  <div id="map-container" class="demo-panel">
+    {{ map_html | safe }}
+
+   <script>
+  window.REGIOES_LAYER_NAME = {{ regioes_layer_name | tojson }};
+  window.UF_LAYER_NAME = {{ uf_layer_name | tojson }};
+
+  console.log("REGIOES_LAYER_NAME:", window.REGIOES_LAYER_NAME);
+  console.log("UF_LAYER_NAME:", window.UF_LAYER_NAME);
+</script>
+  </div>
 </div>
-
 <script>
-    window.DROPDOWN_DATA = {{ dropdown_data | tojson }};
+  window.DROPDOWN_DATA = {{ dropdown_data | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/dropdowns.js') }}"></script>
 
