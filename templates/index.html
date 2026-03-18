@@ -36,7 +36,6 @@ Home
         />
 
         <div id="category-chips" class="chip-row"></div>
-
         <div id="category-list" class="checkbox-list"></div>
       </div>
 
@@ -61,11 +60,55 @@ Home
       </div>
 
       <div class="form-spacer"></div>
+
       <div class="form-actions">
-        <button class="btn-secondary" type="button">Export</button>
-        <button class="btn-secondary" type="button">Reset</button>
+        <button id="set-primary-btn" class="btn-secondary" type="button">
+          Set as Map Variable
+        </button>
+        <button id="set-compare-btn" class="btn-secondary" type="button">
+          Set as Comparison
+        </button>
       </div>
-      <button class="btn-primary" type="button">View Correlations</button>
+
+      <div id="selection-summary" class="form-field">
+        <label class="form-label">selected variables</label>
+
+        <div
+          id="primary-summary"
+          class="form-select"
+          style="min-height:44px; display:flex; align-items:center; margin-bottom:8px;"
+        >
+          Map variable: none selected
+        </div>
+
+        <div
+          id="compare-summary"
+          class="form-select"
+          style="min-height:44px; display:flex; align-items:center;"
+        >
+          Comparison variable: none selected
+        </div>
+      </div>
+
+      <div id="correlation-result" class="form-field" style="display:none;">
+        <label class="form-label">correlation result</label>
+        <div
+          id="correlation-text"
+          class="form-select"
+          style="min-height:44px; display:flex; align-items:center;"
+        >
+          No result yet
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button id="export-btn" class="btn-secondary" type="button">Export</button>
+        <button id="reset-btn" class="btn-secondary" type="button">Reset</button>
+      </div>
+
+      <button id="view-correlation-btn" class="btn-primary" type="button">
+        Calculate Correlation
+      </button>
 
     </div>
   </div>
@@ -73,15 +116,16 @@ Home
   <div id="map-container" class="demo-panel">
     {{ map_html | safe }}
 
-   <script>
-  window.REGIOES_LAYER_NAME = {{ regioes_layer_name | tojson }};
-  window.UF_LAYER_NAME = {{ uf_layer_name | tojson }};
+    <script>
+      window.REGIOES_LAYER_NAME = {{ regioes_layer_name | tojson }};
+      window.UF_LAYER_NAME = {{ uf_layer_name | tojson }};
 
-  console.log("REGIOES_LAYER_NAME:", window.REGIOES_LAYER_NAME);
-  console.log("UF_LAYER_NAME:", window.UF_LAYER_NAME);
-</script>
+      console.log("REGIOES_LAYER_NAME:", window.REGIOES_LAYER_NAME);
+      console.log("UF_LAYER_NAME:", window.UF_LAYER_NAME);
+    </script>
   </div>
 </div>
+
 <script>
   window.DROPDOWN_DATA = {{ dropdown_data | tojson }};
 </script>

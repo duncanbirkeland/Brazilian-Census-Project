@@ -7,14 +7,29 @@
   const categoryListEl = document.getElementById("category-list");
   const categoryChipsEl = document.getElementById("category-chips");
 
-  // Other dropdowns
+  // Main selector
   const tableEl = document.getElementById("table");
   const variableEl = document.getElementById("variable");
   const demographicEl = document.getElementById("demographic");
   const classificationEl = document.getElementById("classification");
 
+  // Buttons / summaries / result
+  const setPrimaryBtn = document.getElementById("set-primary-btn");
+  const setCompareBtn = document.getElementById("set-compare-btn");
+  const correlationBtn = document.getElementById("view-correlation-btn");
+  const resetBtn = document.getElementById("reset-btn");
+
+  const primarySummaryEl = document.getElementById("primary-summary");
+  const compareSummaryEl = document.getElementById("compare-summary");
+
+  const correlationResultEl = document.getElementById("correlation-result");
+  const correlationTextEl = document.getElementById("correlation-text");
+
   const ALL_CATEGORIES = Object.keys(DATA.categories || {}).sort();
   const selected = new Set();
+
+  let primarySelection = null;
+  let compareSelection = null;
 
   function setOptions(selectEl, items, placeholder, { includePlaceholder = true } = {}) {
     if (!selectEl) return;
@@ -80,13 +95,30 @@
       });
   }
 
-  function refreshTables() {
-    const selectedCats = [...selected];
-
+  function clearPrimarySelectors() {
     setOptions(tableEl, [], "Select table");
     setOptions(variableEl, [], "Select variable");
     setOptions(demographicEl, [], "Select demographic");
     setOptions(classificationEl, [], "Select option");
+  }
+
+  function showCorrelationMessage(text) {
+    if (!correlationResultEl || !correlationTextEl) return;
+    correlationResultEl.style.display = "block";
+    correlationTextEl.textContent = text;
+  }
+
+  function resetCorrelationMessage() {
+    if (!correlationResultEl || !correlationTextEl) return;
+    correlationResultEl.style.display = "none";
+    correlationTextEl.textContent = "No result yet";
+  }
+
+  function refreshTables() {
+    const selectedCats = [...selected];
+
+    clearPrimarySelectors();
+    resetCorrelationMessage();
 
     if (!selectedCats.length) return;
 
@@ -347,6 +379,177 @@
   }
 
   // ---------------------------
+  // Selection storage helpers
+  // ---------------------------
+  function getSelectionPayload() {
+    const table = tableEl?.value || "";
+    const variable = variableEl?.value || "";
+    const demographic = demographicEl?.value || "";
+    const category = classificationEl?.value || "";
+
+    const classificationCode =
+      DATA.tables[table]?.classification_ids?.[demographic] || "";
+
+    return {
+      table,
+      variable,
+      demographic,
+      classification_code: classificationCode,
+      category
+    };
+  }
+
+  function formatSelectionLabel(sel) {
+    if (!sel || !sel.table || !sel.variable) return "none selected";
+
+    const tableName = DATA.tables[sel.table]?.table_name || sel.table;
+
+    const variableName =
+      DATA.tables[sel.table]?.variables?.find(
+        v => String(v.value) === String(sel.variable)
+      )?.label || sel.variable;
+
+    const demographicName = sel.demographic || "No demographic";
+
+    const optionName =
+      DATA.tables[sel.table]?.classification_members?.[sel.demographic]?.find(
+        x => String(x.value) === String(sel.category)
+      )?.label || sel.category || "No option";
+
+    return `${sel.table} — ${tableName} | ${variableName} | ${demographicName} | ${optionName}`;
+  }
+
+  function renderSelectionSummaries() {
+    if (primarySummaryEl) {
+      primarySummaryEl.textContent = `Map variable: ${formatSelectionLabel(primarySelection)}`;
+    }
+
+    if (compareSummaryEl) {
+      compareSummaryEl.textContent = `Comparison variable: ${formatSelectionLabel(compareSelection)}`;
+    }
+  }
+
+  async function fetchAndRenderPrimaryMapFromSelection(payload) {
+    if (!payload.table || !payload.variable) return;
+
+    try {
+      const res = await fetch("/api/sidra-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (result?.error) {
+        console.error("SIDRA error:", result.error);
+        showCorrelationMessage(result.error);
+        return;
+      }
+
+      if (result?.n2) updateRegions(result.n2);
+      if (result?.n3) updateUFs(result.n3);
+    } catch (err) {
+      console.error("Failed to fetch SIDRA data:", err);
+      showCorrelationMessage("Failed to fetch map data.");
+    }
+  }
+
+  async function setPrimarySelection() {
+    const payload = getSelectionPayload();
+
+    if (!payload.table || !payload.variable) {
+      showCorrelationMessage("Choose a table and variable first.");
+      return;
+    }
+
+    primarySelection = payload;
+    renderSelectionSummaries();
+    resetCorrelationMessage();
+
+    await fetchAndRenderPrimaryMapFromSelection(primarySelection);
+  }
+
+  function setCompareSelection() {
+    const payload = getSelectionPayload();
+
+    if (!payload.table || !payload.variable) {
+      showCorrelationMessage("Choose a table and variable first.");
+      return;
+    }
+
+    compareSelection = payload;
+    renderSelectionSummaries();
+    resetCorrelationMessage();
+  }
+
+  function interpretCorrelation(r) {
+    const abs = Math.abs(r);
+
+    if (abs >= 0.8) return "very strong";
+    if (abs >= 0.6) return "strong";
+    if (abs >= 0.4) return "moderate";
+    if (abs >= 0.2) return "weak";
+    return "very weak";
+  }
+
+  async function calculateCorrelation() {
+    if (!primarySelection) {
+      showCorrelationMessage("Set a map variable first.");
+      return;
+    }
+
+    if (!compareSelection) {
+      showCorrelationMessage("Set a comparison variable first.");
+      return;
+    }
+
+    showCorrelationMessage("Calculating correlation...");
+
+    try {
+      const res = await fetch("/api/correlate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          left: primarySelection,
+          right: compareSelection
+        })
+      });
+
+      const result = await res.json();
+
+      if (result?.error) {
+        showCorrelationMessage(result.error);
+        return;
+      }
+
+      const r = Number(result.correlation);
+      const strength = interpretCorrelation(r);
+
+      showCorrelationMessage(
+        `Pearson correlation: ${r.toFixed(3)} (${strength}) across ${result.count} states`
+      );
+    } catch (err) {
+      console.error("Failed to calculate correlation:", err);
+      showCorrelationMessage("Failed to calculate correlation.");
+    }
+  }
+
+  function resetAll() {
+    selected.clear();
+    primarySelection = null;
+    compareSelection = null;
+
+    if (categorySearchEl) categorySearchEl.value = "";
+
+    renderCategoryList();
+    renderChips();
+    clearPrimarySelectors();
+    resetCorrelationMessage();
+    renderSelectionSummaries();
+  }
+
+  // ---------------------------
   // Event wiring
   // ---------------------------
   if (categorySearchEl) {
@@ -362,6 +565,7 @@
       setOptions(variableEl, t?.variables || [], "Select variable");
       setOptions(demographicEl, [], "Select demographic");
       setOptions(classificationEl, [], "Select option");
+      resetCorrelationMessage();
     });
   }
 
@@ -371,6 +575,7 @@
 
       setOptions(demographicEl, t?.demographics || [], "Select demographic");
       setOptions(classificationEl, [], "Select option");
+      resetCorrelationMessage();
     });
   }
 
@@ -383,54 +588,37 @@
         t?.classification_members?.[demographicEl.value] || [],
         "Select option"
       );
+      resetCorrelationMessage();
     });
   }
 
   if (classificationEl) {
-    classificationEl.addEventListener("change", async () => {
-      const table = tableEl?.value;
-      const variable = variableEl?.value;
-      const demographic = demographicEl?.value;
-
-      const classificationCode =
-        DATA.tables[table]?.classification_ids?.[demographic];
-
-      const category = classificationEl.value;
-
-      if (!table || !variable) return;
-
-      try {
-        const res = await fetch("/api/sidra-data", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            table,
-            variable,
-            classification_code: classificationCode,
-            category
-          })
-        });
-
-        const result = await res.json();
-        console.log("SIDRA result:", result);
-
-        if (result?.error) {
-          console.error("SIDRA error:", result.error);
-          return;
-        }
-
-        if (result?.n2) updateRegions(result.n2);
-        if (result?.n3) updateUFs(result.n3);
-      } catch (err) {
-        console.error("Failed to fetch SIDRA data:", err);
-      }
+    classificationEl.addEventListener("change", () => {
+      resetCorrelationMessage();
     });
+  }
+
+  if (setPrimaryBtn) {
+    setPrimaryBtn.addEventListener("click", setPrimarySelection);
+  }
+
+  if (setCompareBtn) {
+    setCompareBtn.addEventListener("click", setCompareSelection);
+  }
+
+  if (correlationBtn) {
+    correlationBtn.addEventListener("click", calculateCorrelation);
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", resetAll);
   }
 
   // ---------------------------
   // Init
   // ---------------------------
   renderCategoryList();
+  renderSelectionSummaries();
 
   window.addEventListener("load", () => {
     let tries = 0;

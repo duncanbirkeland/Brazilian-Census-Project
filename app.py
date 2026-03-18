@@ -1,6 +1,7 @@
 from functools import wraps
 from pathlib import Path
 import json
+from math import sqrt
 
 import geopandas as gpd
 import requests
@@ -43,7 +44,6 @@ def build_dropdown_data(payload: dict) -> dict:
       - rank tables by fewest extra categories beyond the selection
       - then drill down into variables/demographics/options
     """
-
     categories_map = payload.get("categories", {}) or {}
     tables = payload.get("tables", {}) or {}
 
@@ -80,7 +80,6 @@ def build_dropdown_data(payload: dict) -> dict:
         }
 
     out_categories = {k: [str(x) for x in (v or [])] for k, v in categories_map.items()}
-
     return {"categories": out_categories, "tables": out_tables}
 
 
@@ -97,6 +96,71 @@ def login_required(view_func):
         return view_func(*args, **kwargs)
 
     return wrapper
+
+
+# ---------- SIDRA helpers ----------
+
+def fetch_sidra_series(
+    table,
+    variable,
+    classification=None,
+    category=None,
+    level="n3",
+    period="2022",
+):
+    """
+    Fetch one SIDRA series and return { geographic_code: value }.
+    Uses D3C as the geographic key, matching your existing implementation.
+    """
+    url = (
+        f"https://apisidra.ibge.gov.br/values/"
+        f"t/{table}/v/{variable}/p/{period}/{level}/all"
+    )
+
+    if classification and category:
+        url += f"/c{classification}/{category}"
+
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    raw = response.json()
+
+    rows = raw[1:]
+    cleaned = {}
+
+    for row in rows:
+        val = row.get("V")
+        if val in ["-", None]:
+            continue
+
+        try:
+            cleaned[str(row["D3C"])] = float(val)
+        except (ValueError, TypeError, KeyError):
+            continue
+
+    return cleaned
+
+
+def pearson_corr(xs, ys):
+    """
+    Compute Pearson correlation for two equal-length numeric lists.
+    Returns None if correlation cannot be computed.
+    """
+    if len(xs) != len(ys) or len(xs) < 2:
+        return None
+
+    n = len(xs)
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+
+    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    den_x = sum((x - mean_x) ** 2 for x in xs)
+    den_y = sum((y - mean_y) ** 2 for y in ys)
+
+    den = sqrt(den_x * den_y)
+    if den == 0:
+        return None
+
+    return num / den
 
 
 # ---------- Routes ----------
@@ -239,34 +303,83 @@ def sidra_data():
     if not all([table, variable]):
         return jsonify({"error": "Missing parameters"}), 400
 
-    period = "2022"
-
-    def fetch_level(level: str):
-        url = (
-            f"https://apisidra.ibge.gov.br/values/"
-            f"t/{table}/v/{variable}/p/{period}/{level}/all"
+    try:
+        data_n2 = fetch_sidra_series(
+            table=table,
+            variable=variable,
+            classification=classification,
+            category=category,
+            level="n2",
+            period="2022",
         )
 
-        if classification and category:
-            url += f"/c{classification}/{category}"
-
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
-        raw = response.json()
-
-        rows = raw[1:]
-
-        cleaned = {}
-        for row in rows:
-            cleaned[str(row["D3C"])] = float(row["V"]) if row["V"] not in ["-", None] else 0
-
-        return cleaned
-
-    try:
-        data_n2 = fetch_level("n2")
-        data_n3 = fetch_level("n3")
+        data_n3 = fetch_sidra_series(
+            table=table,
+            variable=variable,
+            classification=classification,
+            category=category,
+            level="n3",
+            period="2022",
+        )
 
         return jsonify({"n2": data_n2, "n3": data_n3})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/correlate", methods=["POST"])
+def correlate():
+    """
+    Compare two user-selected demographics at state level (n3)
+    and return the Pearson correlation score.
+    """
+    data = request.json or {}
+
+    left = data.get("left") or {}
+    right = data.get("right") or {}
+
+    if not left.get("table") or not left.get("variable"):
+        return jsonify({"error": "Missing primary selection"}), 400
+
+    if not right.get("table") or not right.get("variable"):
+        return jsonify({"error": "Missing comparison selection"}), 400
+
+    try:
+        left_series = fetch_sidra_series(
+            table=left["table"],
+            variable=left["variable"],
+            classification=left.get("classification_code"),
+            category=left.get("category"),
+            level="n3",
+            period="2022",
+        )
+
+        right_series = fetch_sidra_series(
+            table=right["table"],
+            variable=right["variable"],
+            classification=right.get("classification_code"),
+            category=right.get("category"),
+            level="n3",
+            period="2022",
+        )
+
+        common_keys = sorted(set(left_series.keys()) & set(right_series.keys()))
+        if len(common_keys) < 2:
+            return jsonify({"error": "Not enough overlapping states to compare."}), 400
+
+        xs = [left_series[k] for k in common_keys]
+        ys = [right_series[k] for k in common_keys]
+
+        corr = pearson_corr(xs, ys)
+        if corr is None:
+            return jsonify({"error": "Correlation could not be computed."}), 400
+
+        return jsonify({
+            "correlation": corr,
+            "count": len(common_keys),
+            "keys": common_keys,
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
