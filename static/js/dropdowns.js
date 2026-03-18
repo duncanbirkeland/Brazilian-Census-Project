@@ -174,7 +174,6 @@
     const iframe = document.querySelector("#map-container iframe");
     if (!iframe) return null;
 
-    // Folium uses srcdoc, so this is same-origin and accessible
     return iframe.contentWindow || null;
   }
 
@@ -190,7 +189,6 @@
       ? mapWin[window.UF_LAYER_NAME]
       : null;
 
-    // Find the folium/leaflet map object dynamically
     const mapObj = Object.values(mapWin).find(
       v => v && typeof v.getZoom === "function" && typeof v.addLayer === "function"
     );
@@ -236,8 +234,6 @@
 
     const { min, max } = getRange(n2Data);
 
-    // BR_Regioes_2022 typically has SIGLA_RG: N, NE, SE, S, CO
-    // SIDRA n2 keys are usually: 1..5
     const SIGLA_TO_N2 = {
       N: "1",
       NE: "2",
@@ -276,7 +272,7 @@
       }
 
       layer.bindTooltip(
-        `<div><b>${regionName}</b></div><div>Valor: ${valueText}</div>`,
+        `<div><b>${regionName}</b></div><div>Value: ${valueText}</div>`,
         { sticky: true }
       );
     });
@@ -333,42 +329,19 @@
       }
 
       layer.bindTooltip(
-        `<div><b>${ufName}</b></div><div>Valor: ${valueText}</div>`,
+        `<div><b>${ufName}</b></div><div>Value: ${valueText}</div>`,
         { sticky: true }
       );
     });
   }
 
-  function syncLayerVisibility() {
-    const { mapObj, regioesLayer, ufLayer } = getMapObjects();
-
-    if (!mapObj || !regioesLayer || !ufLayer) return;
-
-    const zoom = mapObj.getZoom();
-    const showUF = zoom >= 6;
-
-    if (showUF) {
-      if (mapObj.hasLayer(regioesLayer)) mapObj.removeLayer(regioesLayer);
-      if (!mapObj.hasLayer(ufLayer)) mapObj.addLayer(ufLayer);
-    } else {
-      if (mapObj.hasLayer(ufLayer)) mapObj.removeLayer(ufLayer);
-      if (!mapObj.hasLayer(regioesLayer)) mapObj.addLayer(regioesLayer);
-    }
-  }
-
-  function attachZoomHandler() {
+  function attachMapHandler() {
     const { mapObj } = getMapObjects();
 
     if (!mapObj) {
       console.warn("Map object not found yet.");
       return false;
     }
-
-    if (mapObj.__zoomHandlerAttached) return true;
-
-    mapObj.__zoomHandlerAttached = true;
-    mapObj.on("zoomend", syncLayerVisibility);
-    syncLayerVisibility();
 
     return true;
   }
@@ -387,8 +360,6 @@
       const t = DATA.tables[tableEl.value];
 
       setOptions(variableEl, t?.variables || [], "Select variable");
-
-      // reset downstream
       setOptions(demographicEl, [], "Select demographic");
       setOptions(classificationEl, [], "Select option");
     });
@@ -399,8 +370,6 @@
       const t = DATA.tables[tableEl.value];
 
       setOptions(demographicEl, t?.demographics || [], "Select demographic");
-
-      // reset downstream
       setOptions(classificationEl, [], "Select option");
     });
   }
@@ -423,11 +392,9 @@
       const variable = variableEl?.value;
       const demographic = demographicEl?.value;
 
-      // dimension id used as /c{ID}/...
       const classificationCode =
         DATA.tables[table]?.classification_ids?.[demographic];
 
-      // selected member id used as /c{ID}/{member}
       const category = classificationEl.value;
 
       if (!table || !variable) return;
@@ -454,8 +421,6 @@
 
         if (result?.n2) updateRegions(result.n2);
         if (result?.n3) updateUFs(result.n3);
-
-        syncLayerVisibility();
       } catch (err) {
         console.error("Failed to fetch SIDRA data:", err);
       }
@@ -473,11 +438,10 @@
 
     const timer = setInterval(() => {
       tries += 1;
-      const ok = attachZoomHandler();
+      const ok = attachMapHandler();
 
       if (ok || tries >= maxTries) {
         clearInterval(timer);
-        syncLayerVisibility();
       }
     }, 300);
   });

@@ -1,4 +1,3 @@
-# app.py
 from functools import wraps
 from pathlib import Path
 import json
@@ -54,7 +53,6 @@ def build_dropdown_data(payload: dict) -> dict:
         demographics = t.get("demographics", []) or []
         class_members = t.get("classification_members", {}) or {}
 
-        # variables: convert to value/label for dropdown
         variables = [
             {
                 "value": str(v.get("variable_id")) if isinstance(v, dict) else str(v),
@@ -68,9 +66,7 @@ def build_dropdown_data(payload: dict) -> dict:
             "categories": t.get("categories", []) or [],
             "variables": variables,
             "demographics": demographics,
-            # ✅ NEW: demographic name -> classification id (dimension id, used in /c{ID}/...)
             "classification_ids": t.get("classification_ids", {}) or {},
-            # ✅ UPDATED: id/name -> value/label for dropdown
             "classification_members": {
                 d: [
                     {
@@ -107,7 +103,6 @@ def login_required(view_func):
 
 @app.route("/")
 def home():
-    # --- Load shapefiles ---
     regioes_path = Path(app.static_folder) / "BR_Regioes_2022" / "BR_Regioes_2022.shp"
     uf_path = Path(app.static_folder) / "BR_UF_2022" / "BR_UF_2022.shp"
 
@@ -119,67 +114,56 @@ def home():
     regioes_gdf = gpd.read_file(regioes_path)
     uf_gdf = gpd.read_file(uf_path)
 
-    # Reproject to WGS84 (Leaflet expects lat/lon)
     if regioes_gdf.crs is not None and regioes_gdf.crs.to_epsg() != 4326:
         regioes_gdf = regioes_gdf.to_crs(epsg=4326)
 
     if uf_gdf.crs is not None and uf_gdf.crs.to_epsg() != 4326:
         uf_gdf = uf_gdf.to_crs(epsg=4326)
 
-    # Optional debug: print available columns once
     print("REGIOES columns:", list(regioes_gdf.columns))
     print("UF columns:", list(uf_gdf.columns))
 
-    # Convert to GeoJSON dict
     regioes_geojson = json.loads(regioes_gdf.to_json())
     uf_geojson = json.loads(uf_gdf.to_json())
 
-    # --- Map ---
     m = folium.Map(
         location=[-14.2350, -51.9253],
         zoom_start=4,
-        tiles=None
+        tiles=None,
     )
 
-    # Fit to Brazil bounds using regions layer
     minx, miny, maxx, maxy = regioes_gdf.total_bounds
     m.fit_bounds([[miny, minx], [maxy, maxx]])
 
-    # Regions layer (N2)
     regioes_layer = folium.GeoJson(
         regioes_geojson,
         name="Regions",
+        overlay=False,
         style_function=lambda feature: {
             "fillColor": "#3388ff",
             "color": "#222222",
             "weight": 1,
             "fillOpacity": 0.25,
-        },
-        highlight_function=lambda feature: {
-            "weight": 3,
-            "fillOpacity": 0.45,
         },
         show=True,
     )
     regioes_layer.add_to(m)
 
-    # UF layer (N3)
     uf_layer = folium.GeoJson(
         uf_geojson,
-        name="UFs",
+        name="States",
+        overlay=False,
         style_function=lambda feature: {
             "fillColor": "#3388ff",
             "color": "#222222",
             "weight": 1,
             "fillOpacity": 0.25,
         },
-        highlight_function=lambda feature: {
-            "weight": 3,
-            "fillOpacity": 0.45,
-        },
         show=False,
     )
     uf_layer.add_to(m)
+
+    folium.LayerControl(collapsed=False).add_to(m)
 
     map_html = m._repr_html_()
 
@@ -191,6 +175,7 @@ def home():
         regioes_layer_name=regioes_layer.get_name(),
         uf_layer_name=uf_layer.get_name(),
     )
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -248,8 +233,8 @@ def sidra_data():
 
     table = data.get("table")
     variable = data.get("variable")
-    classification = data.get("classification_code")  # dimension id (for /c{ID}/...)
-    category = data.get("category")                  # member id
+    classification = data.get("classification_code")
+    category = data.get("category")
 
     if not all([table, variable]):
         return jsonify({"error": "Missing parameters"}), 400
@@ -269,18 +254,17 @@ def sidra_data():
         response.raise_for_status()
         raw = response.json()
 
-        rows = raw[1:]  # remove header row
+        rows = raw[1:]
 
         cleaned = {}
         for row in rows:
-            # D3C is the code for the geography level (n2/n3) in this endpoint response
             cleaned[str(row["D3C"])] = float(row["V"]) if row["V"] not in ["-", None] else 0
 
         return cleaned
 
     try:
-        data_n2 = fetch_level("n2")  # macroregions
-        data_n3 = fetch_level("n3")  # states
+        data_n2 = fetch_level("n2")
+        data_n3 = fetch_level("n3")
 
         return jsonify({"n2": data_n2, "n3": data_n3})
 
