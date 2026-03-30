@@ -190,10 +190,13 @@ def home():
     regioes_geojson = json.loads(regioes_gdf.to_json())
     uf_geojson = json.loads(uf_gdf.to_json())
 
+    # Pass container width/height as 100% to Folium if possible, 
+    # though fit_bounds and _repr_html_ usually handle this.
     m = folium.Map(
         location=[-14.2350, -51.9253],
         zoom_start=4,
         tiles=None,
+        prefer_canvas=True # Optimization
     )
 
     minx, miny, maxx, maxy = regioes_gdf.total_bounds

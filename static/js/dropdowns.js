@@ -83,7 +83,7 @@
 
         return {
           tid,
-          label: `${tid} — ${t?.table_name || "Unknown table"}`,
+          label: t?.table_name || "Unknown table",
           extra,
           catsLen: cats.length
         };
@@ -416,7 +416,7 @@
         x => String(x.value) === String(sel.category)
       )?.label || sel.category || "No option";
 
-    return `${sel.table} — ${tableName} | ${variableName} | ${demographicName} | ${optionName}`;
+    return `${tableName} | ${variableName} | ${demographicName} | ${optionName}`;
   }
 
   function renderSelectionSummaries() {
@@ -553,10 +553,50 @@
   // Event wiring
   // ---------------------------
   if (categorySearchEl) {
-    categorySearchEl.addEventListener("input", e => {
-      renderCategoryList(e.target.value);
-    });
-  }
+  categorySearchEl.addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+    const selectedCats = [...selected];
+
+    let tableIds = [];
+
+    // Step 1: start from category filter (if any)
+    if (selectedCats.length) {
+      const lists = selectedCats.map(c => DATA.categories[c] || []);
+      tableIds = intersectArrays(lists);
+    } else {
+      // no categories selected → all tables
+      tableIds = Object.keys(DATA.tables);
+    }
+
+    // Step 2: apply search filter
+    if (q) {
+      tableIds = tableIds.filter(tid =>
+        (DATA.tables[tid]?.table_name || "")
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    // Step 3: rank like your existing logic
+    const ranked = rankTablesForSelection(tableIds, selectedCats);
+
+    const top = ranked.slice(0, 10).map(x => ({
+      value: x.tid,
+      label: x.label
+    }));
+
+    setOptions(
+      tableEl,
+      top,
+      top.length ? "Select table" : "No tables found"
+    );
+
+    // Clear dependent dropdowns
+    setOptions(variableEl, [], "Select variable");
+    setOptions(demographicEl, [], "Select demographic");
+    setOptions(classificationEl, [], "Select option");
+  });
+}
 
   if (tableEl) {
     tableEl.addEventListener("change", () => {
