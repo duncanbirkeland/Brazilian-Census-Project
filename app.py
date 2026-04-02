@@ -141,12 +141,6 @@ def build_base_map():
     """
     global BASE_MAP_HTML, REGIOES_LAYER_NAME, UF_LAYER_NAME
 
-    # Ensure required shapefiles exist before attempting to load them
-    if not REGIOES_PATH.exists():
-        raise FileNotFoundError(f"Missing shapefile: {REGIOES_PATH}")
-    if not UF_PATH.exists():
-        raise FileNotFoundError(f"Missing shapefile: {UF_PATH}")
-
     # Load prebuilt GeoJSON files instead of reading shapefiles with GeoPandas
     with (Path(app.static_folder) / "regions.geojson").open("r", encoding="utf-8") as regions_file:
         regions_geojson = json.load(regions_file)
