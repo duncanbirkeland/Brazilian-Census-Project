@@ -572,3 +572,80 @@ all: unset;           /* remove ALL browser default styles */
 #map-container iframe .folium-map {
   background: transparent !important;
 }
+/* SAVED MAP VARIABLES PAGE */
+
+.saved-mapvars-panel {
+  width: 100%;
+  padding: calc(1.6 * var(--u));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.saved-mapvars-title {
+  font-size: calc(3.2 * var(--u));
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: calc(1.2 * var(--u));
+  flex: 0 0 auto;
+}
+
+.saved-mapvars-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--stroke);
+  border-radius: calc(1 * var(--u));
+  background: rgba(245, 247, 250, 0.72);
+}
+
+.saved-mapvars-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-family: "Lato", sans-serif;
+  color: var(--ink);
+}
+
+.saved-mapvars-table th,
+.saved-mapvars-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
+  text-align: left;
+}
+
+.saved-mapvars-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--mist);
+  color: var(--ink);
+  font-size: calc(1.15 * var(--u));
+  font-weight: 700;
+  padding: calc(0.9 * var(--u)) calc(1.1 * var(--u));
+  border-bottom: 2px solid var(--stroke);
+}
+
+.saved-mapvars-table tbody td {
+  font-size: calc(1.05 * var(--u));
+  line-height: 1.5;
+  padding: calc(1 * var(--u)) calc(1.1 * var(--u));
+  border-bottom: 1px solid rgba(183, 208, 218, 0.65);
+}
+
+.saved-mapvars-table tbody tr:nth-child(even) {
+  background: rgba(227, 239, 244, 0.45);
+}
+
+.saved-mapvars-table tbody tr:hover {
+  background: rgba(31, 122, 140, 0.08);
+}
+
+.saved-mapvars-table a {
+  color: var(--river);
+  font-weight: 700;
+  text-decoration: underline;
+}
