@@ -1,0 +1,40 @@
+{% extends "basetemplate.html" %}
+
+{% block title %}
+Map Variables
+{% endblock %}
+
+{% block navbar_left %}
+<p id="navbar-title">brazilcensus</p>
+{% endblock %}
+
+{% block navbar_right %}
+{% if session.get("user_id") %}
+<a href="{{ url_for('home') }}" class="nav-link">home</a>
+<a href="{{ url_for('logout') }}" class="nav-link">logout</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="demo">
+  <div class="demo-panel saved-mapvars-panel">
+
+    <h2 class="form-title saved-mapvars-title">Saved Map Variables</h2>
+
+    <div class="saved-mapvars-table-wrap">
+      <table id="map-vars-table" class="saved-mapvars-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Correlations</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dropdowns.js') }}"></script>
+{% endblock %}

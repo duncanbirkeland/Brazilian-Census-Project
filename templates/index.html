@@ -1,3 +1,4 @@
+{# templates/index.html #}
 {% extends "basetemplate.html" %}
 
 {% block title %}
@@ -5,16 +6,129 @@ Home
 {% endblock %}
 
 {% block navbar_left %}
-  <label for="year-select">Year:</label>
-  <select id="year-select">
-    <option value="2010">2010</option>
-    <option value="2015">2015</option>
-    <option value="2020">2020</option>
-  </select>
-  <button id="export-btn">Export</button>
+<p id="navbar-title">brazilcensus</p>
+{% endblock %}
+
+{% block navbar_right %}
+{% if session.get("user_id") %}
+<a href="{{ url_for('map_variables_page') }}" class="nav-link">map variables</a>
+<a href="{{ url_for('logout') }}" class="nav-link">logout</a>
+{% else %}
+<a href="{{ url_for('register') }}" class="nav-link">register</a>
+<a href="{{ url_for('login') }}" class="nav-link">login</a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-  <h1>Welcome to the Census Dashboard</h1>
-  <p>Select a year from the dropdown above to begin.</p>
+<div id="demo-row" class="demo">
+  <div id="select-container" class="demo-panel">
+    <div class="form-container">
+
+      <h2 class="form-title">map selector</h2>
+
+      <div class="form-field">
+        <label class="form-label" for="category-search">categories</label>
+
+        <input
+          id="category-search"
+          class="form-select"
+          type="text"
+          placeholder="Search categories..."
+        />
+
+        <div id="category-chips" class="chip-row"></div>
+        <div id="category-list" class="checkbox-list"></div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="table">table</label>
+        <select id="table" class="form-select"></select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="variable">variable</label>
+        <select id="variable" class="form-select"></select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="demographic">demographic</label>
+        <select id="demographic" class="form-select"></select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="classification">options</label>
+        <select id="classification" class="form-select"></select>
+      </div>
+
+      <div class="form-spacer"></div>
+
+      <div class="form-actions">
+        <button id="set-primary-btn" class="btn-secondary" type="button">
+          Set as Map Variable
+        </button>
+        <button id="set-compare-btn" class="btn-secondary" type="button">
+          Set as Comparison
+        </button>
+      </div>
+
+      <div id="selection-summary" class="form-field">
+        <label class="form-label">selected variables</label>
+
+        <div
+          id="primary-summary"
+          class="form-select"
+          style="min-height:44px; display:flex; align-items:center; margin-bottom:8px;"
+        >
+          Map variable: none selected
+        </div>
+
+        <div
+          id="compare-summary"
+          class="form-select"
+          style="min-height:44px; display:flex; align-items:center;"
+        >
+          Comparison variable: none selected
+        </div>
+      </div>
+
+      <div id="correlation-result" class="form-field" style="display:none;">
+        <label class="form-label">correlation result</label>
+        <div
+          id="correlation-text"
+          class="form-select"
+          style="min-height:44px; display:flex; align-items:center;"
+        >
+          No result yet
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button id="reset-btn" class="btn-primary" type="button">Reset</button>
+      </div>
+
+      <button id="view-correlation-btn" class="btn-primary" type="button">
+        Calculate Correlation
+      </button>
+
+    </div>
+  </div>
+
+  <div id="map-container" class="demo-panel">
+    {{ map_html | safe }}
+
+    <script>
+      window.REGIOES_LAYER_NAME = {{ regioes_layer_name | tojson }};
+      window.UF_LAYER_NAME = {{ uf_layer_name | tojson }};
+
+      console.log("REGIOES_LAYER_NAME:", window.REGIOES_LAYER_NAME);
+      console.log("UF_LAYER_NAME:", window.UF_LAYER_NAME);
+    </script>
+  </div>
+</div>
+
+<script>
+  window.DROPDOWN_DATA = {{ dropdown_data | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/dropdowns.js') }}"></script>
+
 {% endblock %}
