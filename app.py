@@ -19,14 +19,18 @@ from flask import (
 
 from model import db, User, MapVariable, Correlation  # SQLAlchemy models and DB instance.
 
-# Create the istance of the Flask application
 app = Flask(__name__)
 
-# Set up Flask and SQLAlchemy configuration
-app.config["SECRET_KEY"] = "secretkey123"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+import os
 
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-secret")
+
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL",
+    "sqlite:///app.db"
+)
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Assign the SQLAlchemy instance to this flask app
 db.init_app(app)
 
