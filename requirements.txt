@@ -1,6 +1,5 @@
 Flask
 Flask-SQLAlchemy
 gunicorn
-geopandas
 requests
 folium

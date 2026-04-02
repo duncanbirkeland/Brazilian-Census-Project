@@ -3,7 +3,6 @@ from pathlib import Path  # Supports path handling on multiple systems
 import json  # Supports JSON parsing
 from math import sqrt  # Used for Pearson correlation denominator
 
-import geopandas as gpd  # Read and modify geographic shape files
 import requests  # HTTP client to allow for SIDRA API requests
 import folium  # Used for interactive map generation
 from flask import (
@@ -118,9 +117,6 @@ CATALOG = load_catalog()
 DROPDOWN_DATA = build_dropdown_data(CATALOG)
 
 
-# Paths to Brazil regions and state shapefiles used by the map
-REGIOES_PATH = Path(app.static_folder) / "BR_Regioes_2022" / "BR_Regioes_2022.shp"
-UF_PATH = Path(app.static_folder) / "BR_UF_2022" / "BR_UF_2022.shp"
 
 # Cached values filled by build_base_map() so the app doesn't rebuild the map on every request
 BASE_MAP_HTML = None
@@ -151,20 +147,12 @@ def build_base_map():
     if not UF_PATH.exists():
         raise FileNotFoundError(f"Missing shapefile: {UF_PATH}")
 
-    # Transfer shapefiles into GeoDataFrames
-    regions_gdf = gpd.read_file(REGIOES_PATH)
-    states_gdf = gpd.read_file(UF_PATH)
+    # Load prebuilt GeoJSON files instead of reading shapefiles with GeoPandas
+    with (Path(app.static_folder) / "regions.geojson").open("r", encoding="utf-8") as regions_file:
+        regions_geojson = json.load(regions_file)
 
-    # Convert both layers to latitude/longitude coordinates if necessary
-    if regions_gdf.crs is not None and regions_gdf.crs.to_epsg() != 4326:
-        regions_gdf = regions_gdf.to_crs(epsg=4326)
-
-    if states_gdf.crs is not None and states_gdf.crs.to_epsg() != 4326:
-        states_gdf = states_gdf.to_crs(epsg=4326)
-
-    # Convert geodata to GeoJSON dictionaries for Folium
-    regions_geojson = regions_gdf.__geo_interface__
-    states_geojson = states_gdf.__geo_interface__
+    with (Path(app.static_folder) / "states.geojson").open("r", encoding="utf-8") as states_file:
+        states_geojson = json.load(states_file)
 
     # Create a blank base map centered on Brazil
     base_map = folium.Map(
@@ -175,8 +163,7 @@ def build_base_map():
     )
 
     # Fit the map bounds to the regions layer so the entire country is visible
-    min_x, min_y, max_x, max_y = regions_gdf.total_bounds
-    base_map.fit_bounds([[min_y, min_x], [max_y, max_x]])
+    base_map.fit_bounds([[-33.75, -73.99], [5.27, -34.79]])
 
     # Add a regions layer that is shown by default
     regions_layer = folium.GeoJson(
