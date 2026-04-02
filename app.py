@@ -163,8 +163,8 @@ def build_base_map():
         states_gdf = states_gdf.to_crs(epsg=4326)
 
     # Convert geodata to GeoJSON dictionaries for Folium
-    regions_geojson = json.loads(regions_gdf.to_json())
-    states_geojson = json.loads(states_gdf.to_json())
+    regions_geojson = regions_gdf.__geo_interface__
+    states_geojson = states_gdf.__geo_interface__
 
     # Create a blank base map centered on Brazil
     base_map = folium.Map(
@@ -217,8 +217,7 @@ def build_base_map():
     UF_LAYER_NAME = states_layer.get_name()
 
 
-# Build the base map once when the module is imported
-build_base_map()
+
 
 
 def login_required(view_func):
@@ -349,14 +348,11 @@ def pearson_corr(x_values, y_values):
 
 @app.route("/")
 def home():
-    """
-    Render the application home page
+    global BASE_MAP_HTML
 
-    The page includes:
-    - the pre-rendered base map
-    - dropdown data for table/variable selection
-    - layer names needed by the frontend JS
-    """
+    if BASE_MAP_HTML is None:
+        build_base_map()
+
     return render_template(
         "index.html",
         title="Brazilian census data",
