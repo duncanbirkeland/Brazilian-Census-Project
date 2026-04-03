@@ -398,10 +398,13 @@ def login_required(view_func):
         Otherwise, call the original view function
         """
         if "user_id" not in session:
+            # 👇 skip flash for API calls
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Unauthorized"}), 401
+
             flash("Please log in first.", "warning")
             return redirect(url_for("login"))
         return view_func(*args, **kwargs)
-
     return wrapper
 
 
@@ -533,24 +536,22 @@ def register():
         email = (request.form.get("email") or "").strip().lower()
         password = request.form.get("password") or ""
 
-        # Require both email and password
         if not email or not password:
             flash("Email and password are required.", "danger")
             return redirect(url_for("register"))
 
-        # Prevent duplicate registrations
-        if User.query.filter_by(email=email).first():
-            flash("Email already registered.", "warning")
-            return redirect(url_for("login"))
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash("An account with that email already exists.", "warning")
+            return redirect(url_for("register"))  # or login if you prefer
 
-        # Create the new user
         user = User(email=email)
         user.set_password(password)
 
-        # Add the user to the database
         db.session.add(user)
         db.session.commit()
 
+        flash("Account created successfully. Please log in.", "success")
         return redirect(url_for("login"))
 
     return render_template("register.html", title="Register")
@@ -572,13 +573,16 @@ def login():
         email = (request.form.get("email") or "").strip().lower()
         password = request.form.get("password") or ""
 
-        # Look up the user and validate the password
         user = User.query.filter_by(email=email).first()
-        if not user or not user.check_password(password):
-            flash("Invalid email or password.", "danger")
+
+        if not user:
+            flash("User does not exist.", "danger")
             return redirect(url_for("login"))
 
-        # Save login state in the session
+        if not user.check_password(password):
+            flash("Incorrect password.", "danger")
+            return redirect(url_for("login"))
+
         session["user_id"] = user.id
         session["user_email"] = user.email
         return redirect(url_for("home"))
