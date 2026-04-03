@@ -297,10 +297,10 @@ def build_base_map():
                   Colours
                 </label>
                 <select id="map-palette-select" style="width:100%;">
-                  <option value="brazil">Brazil</option>
-                  <option value="greens">Greens</option>
-                  <option value="blues">Blues</option>
-                  <option value="reds">Reds</option>
+                  <option value="Default">Default</option>
+                  <option value="Green">Green</option>
+                  <option value="Blue">Blue</option>
+                  <option value="Red">Red</option>
                 </select>
               `;
 
