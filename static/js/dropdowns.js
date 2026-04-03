@@ -37,21 +37,31 @@
   let primarySelection = null;
   let compareSelection = null;
 
-  // Stores the saved database id for the exported primary selection, if available.
+  // Stores the saved database id for the exported primary selection, if available
   let currentMapVariableId = null;
 
-  // Stores the last numeric ranges used to color the region/state layers.
-  // These are reused when the active base layer changes so the legend can be rebuilt.
+  // Stores the last numeric ranges used to color the region/state layers
+  // These are reused when the active base layer changes so the legend can be rebuilt
   let lastRegionRange = null;
   let lastStateRange = null;
 
+  // Stores the available map color palettes and the current active palette
+  // The legend uses the same palette so the scale always matches the map
+  const colorPalettes = {
+    brazil: ["#f7e27e", "#f4d03f", "#78c850", "#39b54a", "#009b3a"],
+    greens: ["#e5f5e0", "#a1d99b", "#74c476", "#31a354", "#006d2c"],
+    blues: ["#deebf7", "#9ecae1", "#6baed6", "#3182bd", "#08519c"],
+    reds: ["#fee5d9", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"]
+  };
+  let currentPaletteName = "brazil";
+
   function setOptions(selectElement, items, placeholder) {
-    // Safely replace all options in a <select>.
+    // Safely replace all options in a <select>
     if (!selectElement) return;
 
     selectElement.innerHTML = "";
 
-    // Add a disabled placeholder option at the top.
+    // Add a disabled placeholder option at the top
     const placeholderOption = document.createElement("option");
     placeholderOption.value = "";
     placeholderOption.textContent = placeholder;
@@ -60,7 +70,7 @@
     selectElement.appendChild(placeholderOption);
 
     // Add the real options.
-    // Supports both string arrays and { value, label } objects.
+    // Supports both string arrays and { value, label } objects
     (items || []).forEach(item => {
       const optionElement = document.createElement("option");
 
@@ -77,8 +87,8 @@
   }
 
   function intersectArrays(arrays) {
-    // Return the intersection of multiple arrays.
-    // Used to find which tables belong to every selected category.
+    // Return the intersection of multiple arrays
+    // Used to find which tables belong to every selected category
     if (!arrays.length) return [];
 
     let intersectionSet = new Set(arrays[0]);
@@ -139,7 +149,7 @@
   }
 
   function showCorrelationMessage(text) {
-    // Show the correlation result box with a message.
+    // Show the correlation result box with a message
     if (!correlationResultContainer || !correlationResultText) return;
 
     correlationResultContainer.style.display = "block";
@@ -147,7 +157,7 @@
   }
 
   function resetCorrelationMessage() {
-    // Hide the correlation result box and restore its default text.
+    // Hide the correlation result box and restore its default text
     if (!correlationResultContainer || !correlationResultText) return;
 
     correlationResultContainer.style.display = "none";
@@ -155,7 +165,7 @@
   }
 
   function refreshTables() {
-    // Rebuild the table dropdown based on the selected categories.
+    // Rebuild the table dropdown based on the selected categories
     const selectedCategoryNames = [...selectedCategories];
 
     clearPrimarySelectors();
@@ -449,18 +459,25 @@
     };
   }
 
+  function getCurrentPalette() {
+    // Return the currently selected palette and fall back to the Brazil palette if needed.
+    return colorPalettes[currentPaletteName] || colorPalettes.brazil;
+  }
+
   function getColor(value, min, max) {
     // Convert a numeric value into a choropleth color bucket.
+    const palette = getCurrentPalette();
+
     if (value === undefined || value === null || isNaN(value)) return "#cccccc";
-    if (max <= min) return "#3388ff";
+    if (max <= min) return palette[4];
 
     const ratio = (value - min) / (max - min);
 
-    if (ratio > 0.8) return "#08306b";
-    if (ratio > 0.6) return "#2171b5";
-    if (ratio > 0.4) return "#4292c6";
-    if (ratio > 0.2) return "#6baed6";
-    return "#9ecae1";
+    if (ratio > 0.8) return palette[4];
+    if (ratio > 0.6) return palette[3];
+    if (ratio > 0.4) return palette[2];
+    if (ratio > 0.2) return palette[1];
+    return palette[0];
   }
 
   function updateRegions(regionData) {
@@ -574,6 +591,9 @@
       });
     }
 
+    // Reuse the active palette so the legend scale always matches the map colors
+    const legendColors = getCurrentPalette();
+
     legendElement.innerHTML = `
       <div style="font-weight:bold; margin-bottom:8px;">${label}</div>
 
@@ -587,11 +607,7 @@
         overflow:hidden;
         margin-bottom:6px;
       ">
-        <div style="background:#9ecae1;"></div>
-        <div style="background:#6baed6;"></div>
-        <div style="background:#4292c6;"></div>
-        <div style="background:#2171b5;"></div>
-        <div style="background:#08306b;"></div>
+        ${legendColors.map(color => `<div style="background:${color};"></div>`).join("")}
       </div>
 
       <div style="display:flex; justify-content:space-between; gap:12px;">
@@ -604,7 +620,7 @@
   }
 
   function updateStates(stateData) {
-    // Apply values and tooltips to the states layer.
+    // Apply values and tooltips to the states layer
     const { statesLayer } = getMapObjects();
 
     if (!statesLayer || typeof statesLayer.eachLayer !== "function") {
@@ -623,7 +639,7 @@
     statesLayer.eachLayer(stateLayer => {
       const properties = stateLayer.feature?.properties || {};
 
-      // Support several possible shapefile field names for the state code.
+      // Support several possible shapefile field names for the state code
       const stateCode = String(
         properties.CD_UF ??
         properties.cd_uf ??
@@ -671,7 +687,7 @@
   }
 
   function attachMapHandler() {
-    // Attach a one-time listener so switching between Regions/States refreshes the legend.
+    // Attach a one-time listener so switching between Regions/States refreshes the legend
     const { mapObject } = getMapObjects();
 
     if (!mapObject) {
@@ -691,11 +707,67 @@
     return true;
   }
 
+  function updateMapColorsForCurrentPalette() {
+    // Repaint the visible map layers and legend using the currently selected palette
+    const { regionsLayer, statesLayer } = getMapObjects();
+
+    if (regionsLayer && typeof regionsLayer.eachLayer === "function" && lastRegionRange) {
+      regionsLayer.eachLayer(regionLayer => {
+        const properties = regionLayer.feature?.properties || {};
+        const regionCodeByAbbreviation = {
+          N: "1",
+          NE: "2",
+          SE: "3",
+          S: "4",
+          CO: "5"
+        };
+        const regionCode = regionCodeByAbbreviation[properties.SIGLA_RG];
+        const tooltipElement = regionLayer.getTooltip && regionLayer.getTooltip();
+        const currentValueText = tooltipElement?._content || "";
+        const valueMatch = currentValueText.match(/Value:\s*([^<]+)/);
+        const parsedValue = valueMatch
+          ? Number(valueMatch[1].replace(/\./g, "").replace(",", "."))
+          : undefined;
+
+        if (regionCode && parsedValue !== undefined && !isNaN(parsedValue)) {
+          regionLayer.setStyle({
+            fillColor: getColor(parsedValue, lastRegionRange.min, lastRegionRange.max),
+            color: "#222222",
+            weight: 1,
+            fillOpacity: 0.6
+          });
+        }
+      });
+    }
+
+    if (statesLayer && typeof statesLayer.eachLayer === "function" && lastStateRange) {
+      statesLayer.eachLayer(stateLayer => {
+        const tooltipElement = stateLayer.getTooltip && stateLayer.getTooltip();
+        const currentValueText = tooltipElement?._content || "";
+        const valueMatch = currentValueText.match(/Value:\s*([^<]+)/);
+        const parsedValue = valueMatch
+          ? Number(valueMatch[1].replace(/\./g, "").replace(",", "."))
+          : undefined;
+
+        if (parsedValue !== undefined && !isNaN(parsedValue)) {
+          stateLayer.setStyle({
+            fillColor: getColor(parsedValue, lastStateRange.min, lastStateRange.max),
+            color: "#222222",
+            weight: 1,
+            fillOpacity: 0.6
+          });
+        }
+      });
+    }
+
+    refreshLegendForActiveLayer();
+  }
+
   // ---------------------------
   // Selection storage helpers
   // ---------------------------
   function getSelectionPayload() {
-    // Build the current selection payload from the dropdown values.
+    // Build the current selection payload from the dropdown values
     const tableId = tableSelect?.value || "";
     const variableId = variableSelect?.value || "";
     const demographic = demographicSelect?.value || "";
@@ -714,7 +786,7 @@
   }
 
   function formatSelectionLabel(selection) {
-    // Convert a selection object into a readable one-line label.
+    // Convert a selection object into a readable one-line label
     if (!selection || !selection.table || !selection.variable) {
       return "none selected";
     }
@@ -740,7 +812,7 @@
   }
 
   function renderSelectionSummaries() {
-    // Update the visible summary text for the primary and comparison selections.
+    // Update the visible summary text for the primary and comparison selections
     if (primarySummaryText) {
       primarySummaryText.textContent =
         `Map variable: ${formatSelectionLabel(primarySelection)}`;
@@ -780,7 +852,7 @@
   }
 
   async function setPrimarySelection() {
-    // Save the current dropdown state as the primary map variable and repaint the map.
+    // Save the current dropdown state as the primary map variable and repaint the map
     const selectionPayload = getSelectionPayload();
 
     if (!selectionPayload.table || !selectionPayload.variable) {
@@ -798,7 +870,7 @@
   }
 
   function setCompareSelection() {
-    // Save the current dropdown state as the comparison variable.
+    // Save the current dropdown state as the comparison variable
     const selectionPayload = getSelectionPayload();
 
     if (!selectionPayload.table || !selectionPayload.variable) {
@@ -823,7 +895,7 @@
   }
 
   async function calculateCorrelation() {
-    // Export the primary variable if needed, then calculate and display correlation.
+    // Export the primary variable if needed, then calculate and display correlation
     if (!primarySelection) {
       showCorrelationMessage("Set a map variable first.");
       return;
@@ -834,7 +906,7 @@
       return;
     }
 
-    // Save the primary selection to the backend once so future correlations can link to it.
+    // Save the primary selection to the backend once so future correlations can link to it
     if (!currentMapVariableId) {
       try {
         const exportResponse = await fetch("/api/export-variable", {
@@ -856,7 +928,7 @@
         }
       } catch (error) {
         console.warn("Export failed (ignored):", error);
-        // Continue anyway so correlation still works even if export fails.
+        // Continue anyway so correlation still works even if export fails
       }
     }
 
@@ -900,7 +972,7 @@
   }
 
   function resetAll() {
-    // Reset all current selections and UI state.
+    // Reset all current selections and UI state
     selectedCategories.clear();
 
     primarySelection = null;
@@ -920,7 +992,7 @@
   }
 
   function correlationStyle(correlationValue) {
-    // Return a color + label pair for displaying saved correlation results.
+    // Return a color + label pair for displaying saved correlation results
     if (correlationValue >= 0.6) {
       return { color: "green", label: "strong positive" };
     }
@@ -970,7 +1042,7 @@
         );
       }
 
-      // Step 3: rank like your existing logic
+      // Step 3: Rank tables by number of categories they fall in to
       const rankedTables = rankTablesForSelection(
         matchingTableIds,
         selectedCategoryNames
@@ -996,7 +1068,7 @@
 
   if (tableSelect) {
     tableSelect.addEventListener("change", () => {
-      // Populate variables for the selected table and clear lower-level selectors.
+      // Populate variables for the selected table and clear lower-level selectors
       const tableMetadata = dropdownData.tables[tableSelect.value];
 
       setOptions(variableSelect, tableMetadata?.variables || [], "Select variable");
@@ -1008,7 +1080,7 @@
 
   if (variableSelect) {
     variableSelect.addEventListener("change", () => {
-      // Populate demographics after a variable is selected.
+      // Populate demographics after a variable is selected
       const tableMetadata = dropdownData.tables[tableSelect.value];
 
       setOptions(
@@ -1023,7 +1095,7 @@
 
   if (demographicSelect) {
     demographicSelect.addEventListener("change", () => {
-      // Populate the classification options for the selected demographic.
+      // Populate the classification options for the selected demographic
       const tableMetadata = dropdownData.tables[tableSelect.value];
 
       setOptions(
@@ -1037,7 +1109,7 @@
 
   if (classificationSelect) {
     classificationSelect.addEventListener("change", () => {
-      // Any change to the last selector invalidates the previous result display.
+      // Any change to the last selector invalidates the previous result display
       resetCorrelationMessage();
     });
   }
@@ -1058,6 +1130,17 @@
     resetButton.addEventListener("click", resetAll);
   }
 
+  // Wire a palette selector into the map if the page includes one
+  // Expected element: <select id="color-palette"> with values like brazil, greens, blues, reds
+  const colorPaletteSelect = document.getElementById("color-palette");
+  if (colorPaletteSelect) {
+    colorPaletteSelect.value = currentPaletteName;
+    colorPaletteSelect.addEventListener("change", event => {
+      currentPaletteName = event.target.value || "brazil";
+      updateMapColorsForCurrentPalette();
+    });
+  }
+
   // ---------------------------
   // Init
   // ---------------------------
@@ -1065,12 +1148,12 @@
   renderCategoryList();
   renderSelectionSummaries();
 
-  // Load saved map variables only on the page that contains the table.
+  // Load saved map variables only on the page that contains the table
   if (document.querySelector("#map-vars-table tbody")) {
     loadMapVariables();
   }
 
-  // Wait for the Folium iframe to finish loading, then attach the legend refresh handler.
+  // Wait for the Folium iframe to finish loading, then attach the legend refresh handler
   window.addEventListener("load", () => {
     let attemptCount = 0;
     const maxAttempts = 20;

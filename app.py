@@ -5,6 +5,7 @@ from math import sqrt  # Used for Pearson correlation denominator
 
 import requests  # HTTP client to allow for SIDRA API requests
 import folium  # Used for interactive map generation
+from branca.element import Element  # Used to inject custom JavaScript into the Folium map
 from flask import (
     Flask,
     render_template,
@@ -110,12 +111,8 @@ def build_dropdown_data(payload: dict) -> dict:
     return {"categories": normalized_categories, "tables": normalized_tables}
 
 
-# Load the catalog data once at startup
-CATALOG = load_catalog()
-
 # Precompute data once at startup to avoid repeated processing
-DROPDOWN_DATA = build_dropdown_data(CATALOG)
-
+DROPDOWN_DATA = build_dropdown_data(load_catalog())
 
 
 # Cached values filled by build_base_map() so the app doesn't rebuild the map on every request
@@ -126,27 +123,20 @@ UF_LAYER_NAME = None
 
 def build_base_map():
     """
-    Build and cache the application's  Folium map
+    Build and cache the application's Folium map
 
-    This function:
-    - Checks the shapefile exists
-    - loads region and state geometries with GeoPandas
-    - converts them to WGS84
-    - creates a Folium map
-    - adds a regions layer and a states layer
+    This optimized version:
+    - creates a lightweight Folium base map on the server
+    - does not embed the large region/state GeoJSON files into the rendered HTML
+    - injects JavaScript that fetches the GeoJSON files in the browser
     - stores rendered HTML and layer names in global variables
-
-    Raises:
-        FileNotFoundError: If any shapefile is missing
     """
     global BASE_MAP_HTML, REGIOES_LAYER_NAME, UF_LAYER_NAME
 
-    # Load prebuilt GeoJSON files instead of reading shapefiles with GeoPandas
-    with (Path(app.static_folder) / "regions.geojson").open("r", encoding="utf-8") as regions_file:
-        regions_geojson = json.load(regions_file)
-
-    with (Path(app.static_folder) / "states.geojson").open("r", encoding="utf-8") as states_file:
-        states_geojson = json.load(states_file)
+    # Use stable layer names so the frontend can continue looking them up
+    # after the GeoJSON layers are created inside the iframe.
+    REGIOES_LAYER_NAME = "regions_layer"
+    UF_LAYER_NAME = "states_layer"
 
     # Create a blank base map centered on Brazil
     base_map = folium.Map(
@@ -154,52 +144,236 @@ def build_base_map():
         zoom_start=4,
         tiles=None,
         prefer_canvas=True,
+        control_scale=False,
+        min_zoom=4,
+        max_zoom=8,
     )
 
-    # Fit the map bounds to the regions layer so the entire country is visible
-    base_map.fit_bounds([[-33.75, -73.99], [5.27, -34.79]])
+    # Fit tightly around Brazil and keep navigation focused there
+    brazil_bounds = [[-34.5, -74.5], [6.5, -32.0]]
 
-    # Add a regions layer that is shown by default
-    regions_layer = folium.GeoJson(
-        regions_geojson,
-        name="Regions",
-        overlay=False,
-        style_function=lambda feature: {
-            "fillColor": "#3388ff",
-            "color": "#222222",
-            "weight": 1,
-            "fillOpacity": 0.25,
-        },
-        show=True,
-    )
-    regions_layer.add_to(base_map)
+    # Slightly expanded bounds so users can pan a bit further out
+    interaction_bounds = [[-45.0, -95.0], [15.0, -20.0]]
 
-    # Add a states layer that is hidden by default
-    states_layer = folium.GeoJson(
-        states_geojson,
-        name="States",
-        overlay=False,
-        style_function=lambda feature: {
-            "fillColor": "#3388ff",
-            "color": "#222222",
-            "weight": 1,
-            "fillOpacity": 0.25,
-        },
-        show=False,
-    )
-    states_layer.add_to(base_map)
+    base_map.fit_bounds(brazil_bounds, padding=(50, 50))
 
-    # Add UI control to toggle between region and state layers
-    folium.LayerControl(collapsed=False).add_to(base_map)
+    # Apply softer boundary
+    base_map.options["maxBounds"] = interaction_bounds
+    base_map.options["maxBoundsViscosity"] = 0.6
+
+    map_name = base_map.get_name()
+    regions_url = f"{app.static_url_path}/regions.geojson"
+    states_url = f"{app.static_url_path}/states.geojson"
+
+    # Load the regions and states GeoJSON files lazily in the browser so the
+    # server does not spend time rendering large inline GeoJSON into the HTML
+    lazy_layer_script = f"""
+    <script>
+    (function () {{
+      function initializeLazyGeoJsonLayers() {{
+        const mapObject = window[{json.dumps(map_name)}];
+        if (!mapObject || window.__lazyGeoJsonInitialized) return;
+        window.__lazyGeoJsonInitialized = true;
+
+        const regionsLayerName = {json.dumps(REGIOES_LAYER_NAME)};
+        const statesLayerName = {json.dumps(UF_LAYER_NAME)};
+        const regionsUrl = {json.dumps(regions_url)};
+        const statesUrl = {json.dumps(states_url)};
+        const brazilBounds = {json.dumps(brazil_bounds)};
+        const interactionBounds = {json.dumps(interaction_bounds)};
+
+        mapObject.fitBounds(brazilBounds, {{
+          padding: [50, 50]
+        }});
+        mapObject.setMaxBounds(interactionBounds);
+
+        const defaultStyle = function () {{
+          return {{
+            fillColor: "#d9d9d9",
+            color: "#666666",
+            weight: 0.8,
+            fillOpacity: 0.35
+          }};
+        }};
+
+        function onEachFeature(feature, layer) {{
+          layer.on({{
+            mouseover: function (event) {{
+              const hoveredLayer = event.target;
+
+              // Store the current style so hover keeps the current fill color
+              hoveredLayer._previousStyle = {{
+                fillColor: hoveredLayer.options.fillColor,
+                color: hoveredLayer.options.color,
+                weight: hoveredLayer.options.weight,
+                fillOpacity: hoveredLayer.options.fillOpacity
+              }};
+
+              // Highlight only the border while keeping the existing fill color
+              hoveredLayer.setStyle({{
+                fillColor: hoveredLayer.options.fillColor,
+                color: "#222222",
+                weight: 2,
+                fillOpacity: hoveredLayer.options.fillOpacity
+              }});
+
+              if (hoveredLayer.bringToFront) {{
+                hoveredLayer.bringToFront();
+              }}
+            }},
+            mouseout: function (event) {{
+              const hoveredLayer = event.target;
+
+              if (hoveredLayer._previousStyle) {{
+                hoveredLayer.setStyle(hoveredLayer._previousStyle);
+              }}
+            }}
+          }});
+        }}
+
+        Promise.all([
+          fetch(regionsUrl).then(function (response) {{
+            if (!response.ok) {{
+              throw new Error("Failed to load regions GeoJSON");
+            }}
+            return response.json();
+          }}),
+          fetch(statesUrl).then(function (response) {{
+            if (!response.ok) {{
+              throw new Error("Failed to load states GeoJSON");
+            }}
+            return response.json();
+          }})
+        ])
+          .then(function (results) {{
+            const regionsGeoJson = results[0];
+            const statesGeoJson = results[1];
+
+            const regionsLayer = L.geoJSON(regionsGeoJson, {{
+              style: defaultStyle,
+              onEachFeature: onEachFeature
+            }});
+
+            const statesLayer = L.geoJSON(statesGeoJson, {{
+              style: defaultStyle,
+              onEachFeature: onEachFeature
+            }});
+
+            // Expose the layers using the same names expected by dropdowns.js
+            window[regionsLayerName] = regionsLayer;
+            window[statesLayerName] = statesLayer;
+
+            // Add a regions layer that is shown by default
+            regionsLayer.addTo(mapObject);
+
+            // Add UI control to toggle between region and state layers
+            const layerControl = L.control.layers(
+              {{
+                "Regions": regionsLayer,
+                "States": statesLayer
+              }},
+              null,
+              {{
+                collapsed: false,
+                position: "topright"
+              }}
+            ).addTo(mapObject);
+
+            // Create a palette selector next to the layer control
+            const paletteControl = L.control({{ position: "topright" }});
+
+            paletteControl.onAdd = function () {{
+              const container = L.DomUtil.create("div");
+
+              container.style.background = "rgba(255,255,255,0.92)";
+              container.style.padding = "6px 8px";
+              container.style.border = "1px solid rgba(0,0,0,0.12)";
+              container.style.borderRadius = "8px";
+              container.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
+              container.style.marginTop = "6px";
+
+              container.innerHTML = `
+                <label style="font-size:12px; display:block; margin-bottom:4px;">
+                  Colours
+                </label>
+                <select id="map-palette-select" style="width:100%;">
+                  <option value="brazil">Brazil</option>
+                  <option value="greens">Greens</option>
+                  <option value="blues">Blues</option>
+                  <option value="reds">Reds</option>
+                </select>
+              `;
+
+              // Prevent map dragging while interacting with the palette selector
+              L.DomEvent.disableClickPropagation(container);
+
+              return container;
+            }};
+
+            paletteControl.addTo(mapObject);
+
+            // Forward map palette changes to the main page selector so map and legend stay in sync
+            setTimeout(function () {{
+              const select = document.getElementById("map-palette-select");
+
+              if (select && window.parent && window.parent.document) {{
+                const externalSelect = window.parent.document.getElementById("color-palette");
+
+                if (externalSelect) {{
+                  select.value = externalSelect.value || "brazil";
+                }}
+
+                select.addEventListener("change", function (event) {{
+                  if (externalSelect) {{
+                    externalSelect.value = event.target.value;
+                    externalSelect.dispatchEvent(new Event("change"));
+                  }}
+                }});
+              }}
+            }}, 300);
+
+            // Clean up the layer control appearance slightly.
+            const controlContainer = layerControl.getContainer();
+            if (controlContainer) {{
+              controlContainer.style.background = "rgba(255, 255, 255, 0.92)";
+              controlContainer.style.border = "1px solid rgba(0, 0, 0, 0.12)";
+              controlContainer.style.borderRadius = "8px";
+              controlContainer.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.12)";
+              controlContainer.style.padding = "4px 6px";
+            }}
+
+            // Refocus the map when switching layers so navigation feels easier.
+            mapObject.on("baselayerchange", function (event) {{
+              if (event.name === "Regions") {{
+                mapObject.fitBounds(brazilBounds, {{
+                  padding: [50, 50]
+                }});
+              }} else if (event.name === "States") {{
+                mapObject.fitBounds(brazilBounds, {{
+                  padding: [35, 35],
+                  maxZoom: 5
+                }});
+              }}
+            }});
+          }})
+          .catch(function (error) {{
+            console.error("Failed to initialize lazy GeoJSON layers:", error);
+          }});
+      }}
+
+      if (document.readyState === "loading") {{
+        document.addEventListener("DOMContentLoaded", initializeLazyGeoJsonLayers);
+      }} else {{
+        initializeLazyGeoJsonLayers();
+      }}
+    }})();
+    </script>
+    """
+
+    base_map.get_root().html.add_child(Element(lazy_layer_script))
 
     # Cache the rendered map HTML and internal Folium layer names
     BASE_MAP_HTML = base_map._repr_html_()
-    REGIOES_LAYER_NAME = regions_layer.get_name()
-    UF_LAYER_NAME = states_layer.get_name()
-
-
-
-
 
 def login_required(view_func):
     """
@@ -229,7 +403,6 @@ def login_required(view_func):
         return view_func(*args, **kwargs)
 
     return wrapper
-
 
 
 def fetch_sidra_series(
@@ -600,7 +773,7 @@ def export_variable():
         - {"status": "exists", "id": ...} if already present
         - {"status": "ok", "id": ...} if newly created
     """
-    request_data = request.json
+    request_data = request.json or {}
 
     # Check whether this exact selection was already saved by the current user.
     existing_variable = MapVariable.query.filter_by(
