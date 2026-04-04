@@ -320,7 +320,7 @@ def build_base_map():
                 const externalSelect = window.parent.document.getElementById("color-palette");
 
                 if (externalSelect) {{
-                  select.value = externalSelect.value || "brazil";
+                  select.value = externalSelect.value || "Default";
                 }}
 
                 select.addEventListener("change", function (event) {{

@@ -48,12 +48,12 @@
   // Stores the available map color palettes and the current active palette
   // The legend uses the same palette so the scale always matches the map
   const colorPalettes = {
-    brazil: ["#f7e27e", "#f4d03f", "#78c850", "#39b54a", "#009b3a"],
-    greens: ["#e5f5e0", "#a1d99b", "#74c476", "#31a354", "#006d2c"],
-    blues: ["#deebf7", "#9ecae1", "#6baed6", "#3182bd", "#08519c"],
-    reds: ["#fee5d9", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"]
-  };
-  let currentPaletteName = "brazil";
+  Default: ["#f7e27e", "#f4d03f", "#78c850", "#39b54a", "#009b3a"],
+  Green: ["#e5f5e0", "#a1d99b", "#74c476", "#31a354", "#006d2c"],
+  Blue: ["#deebf7", "#9ecae1", "#6baed6", "#3182bd", "#08519c"],
+  Red: ["#fee5d9", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"]
+};
+let currentPaletteName = "Default";
 
   function setOptions(selectElement, items, placeholder) {
     // Safely replace all options in a <select>
@@ -461,7 +461,7 @@
 
   function getCurrentPalette() {
     // Return the currently selected palette and fall back to the Brazil palette if needed.
-    return colorPalettes[currentPaletteName] || colorPalettes.brazil;
+    return colorPalettes[currentPaletteName] || colorPalettes.Default;
   }
 
   function getColor(value, min, max) {
@@ -517,13 +517,14 @@
       const regionName =
         properties.NM_REGIAO ||
         properties.NM_RG ||
-        "Região";
+        "Region";
 
       const valueText =
         value === undefined || value === null || isNaN(value)
-          ? "Sem dado"
-          : value.toLocaleString("pt-BR");
+          ? "No data"
+          : value.toLocaleString("en-GB");
 
+      regionLayer._dataValue = value;
       if (typeof regionLayer.setStyle === "function") {
         regionLayer.setStyle({
           fillColor: getColor(value, min, max),
@@ -586,7 +587,7 @@
 
     function formatNumber(value) {
       // Format numeric labels using Brazilian number formatting.
-      return Number(value).toLocaleString("pt-BR", {
+      return Number(value).toLocaleString("en-GB", {
         maximumFractionDigits: 1
       });
     }
@@ -664,8 +665,9 @@
       const valueText =
         value === undefined || value === null || isNaN(value)
           ? "Sem dado"
-          : value.toLocaleString("pt-BR");
+          : value.toLocaleString("en-GB");
 
+      stateLayer._dataValue = value;
       if (typeof stateLayer.setStyle === "function") {
         stateLayer.setStyle({
           fillColor: getColor(value, min, max),
@@ -708,60 +710,41 @@
   }
 
   function updateMapColorsForCurrentPalette() {
-    // Repaint the visible map layers and legend using the currently selected palette
-    const { regionsLayer, statesLayer } = getMapObjects();
+  // Repaint the visible map layers and legend using the currently selected palette
+  const { regionsLayer, statesLayer } = getMapObjects();
 
-    if (regionsLayer && typeof regionsLayer.eachLayer === "function" && lastRegionRange) {
-      regionsLayer.eachLayer(regionLayer => {
-        const properties = regionLayer.feature?.properties || {};
-        const regionCodeByAbbreviation = {
-          N: "1",
-          NE: "2",
-          SE: "3",
-          S: "4",
-          CO: "5"
-        };
-        const regionCode = regionCodeByAbbreviation[properties.SIGLA_RG];
-        const tooltipElement = regionLayer.getTooltip && regionLayer.getTooltip();
-        const currentValueText = tooltipElement?._content || "";
-        const valueMatch = currentValueText.match(/Value:\s*([^<]+)/);
-        const parsedValue = valueMatch
-          ? Number(valueMatch[1].replace(/\./g, "").replace(",", "."))
-          : undefined;
+  if (regionsLayer && typeof regionsLayer.eachLayer === "function" && lastRegionRange) {
+    regionsLayer.eachLayer(regionLayer => {
+      const value = regionLayer._dataValue;
 
-        if (regionCode && parsedValue !== undefined && !isNaN(parsedValue)) {
-          regionLayer.setStyle({
-            fillColor: getColor(parsedValue, lastRegionRange.min, lastRegionRange.max),
-            color: "#222222",
-            weight: 1,
-            fillOpacity: 0.6
-          });
-        }
-      });
-    }
-
-    if (statesLayer && typeof statesLayer.eachLayer === "function" && lastStateRange) {
-      statesLayer.eachLayer(stateLayer => {
-        const tooltipElement = stateLayer.getTooltip && stateLayer.getTooltip();
-        const currentValueText = tooltipElement?._content || "";
-        const valueMatch = currentValueText.match(/Value:\s*([^<]+)/);
-        const parsedValue = valueMatch
-          ? Number(valueMatch[1].replace(/\./g, "").replace(",", "."))
-          : undefined;
-
-        if (parsedValue !== undefined && !isNaN(parsedValue)) {
-          stateLayer.setStyle({
-            fillColor: getColor(parsedValue, lastStateRange.min, lastStateRange.max),
-            color: "#222222",
-            weight: 1,
-            fillOpacity: 0.6
-          });
-        }
-      });
-    }
-
-    refreshLegendForActiveLayer();
+      if (value !== undefined && value !== null && !isNaN(value)) {
+        regionLayer.setStyle({
+          fillColor: getColor(value, lastRegionRange.min, lastRegionRange.max),
+          color: "#222222",
+          weight: 1,
+          fillOpacity: 0.6
+        });
+      }
+    });
   }
+
+  if (statesLayer && typeof statesLayer.eachLayer === "function" && lastStateRange) {
+    statesLayer.eachLayer(stateLayer => {
+      const value = stateLayer._dataValue;
+
+      if (value !== undefined && value !== null && !isNaN(value)) {
+        stateLayer.setStyle({
+          fillColor: getColor(value, lastStateRange.min, lastStateRange.max),
+          color: "#222222",
+          weight: 1,
+          fillOpacity: 0.6
+        });
+      }
+    });
+  }
+
+  refreshLegendForActiveLayer();
+}
 
   // ---------------------------
   // Selection storage helpers
@@ -1136,7 +1119,7 @@
   if (colorPaletteSelect) {
     colorPaletteSelect.value = currentPaletteName;
     colorPaletteSelect.addEventListener("change", event => {
-      currentPaletteName = event.target.value || "brazil";
+      currentPaletteName = event.target.value || "Default";
       updateMapColorsForCurrentPalette();
     });
   }
